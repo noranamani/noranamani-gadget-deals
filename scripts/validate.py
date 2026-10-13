@@ -42,6 +42,8 @@ def main():
     for term in forbidden_editorial_terms:
         if term in public_editorial:
             fail(f"public editorial must not mention generation method: {term}")
+    if re.search(r"(?<![A-Za-z])AI(?![A-Za-z])", public_editorial, flags=re.IGNORECASE):
+        fail("public editorial must not mention generation method: AI")
 
     for path in [DOCS / "index.html", DOCS / "deals.html", DOCS / "methodology.html", DOCS / "privacy.html"]:
         if not path.exists() or path.stat().st_size < 300:
