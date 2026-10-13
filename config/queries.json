@@ -2,6 +2,9 @@
   {"id":"usb-charger","name":"USB-C充電器","keyword":"USB Type-C 充電器 PD PPS","minPrice":500,"maxPrice":5000},
   {"id":"wireless-charger","name":"ワイヤレス充電","keyword":"Qi2 ワイヤレス充電器","minPrice":500,"maxPrice":6000},
   {"id":"microsd","name":"microSD","keyword":"microSD 128GB","minPrice":500,"maxPrice":5000},
-  {"id":"car-gadget","name":"車載ガジェット","keyword":"車載 スマホホルダー 充電","minPrice":500,"maxPrice":8000},
+  {"id":"car-charger","name":"車載充電器","keyword":"車載 充電器 USB-C PD シガーソケット","minPrice":500,"maxPrice":8000},
+  {"id":"car-phone-holder","name":"車載スマホホルダー","keyword":"車載 スマホホルダー マグネット 吸盤 MagSafe","minPrice":500,"maxPrice":8000},
+  {"id":"carplay-android-auto","name":"CarPlay・Android Auto","keyword":"ワイヤレス CarPlay Android Auto アダプター","minPrice":2000,"maxPrice":30000},
+  {"id":"dashcam","name":"ドライブレコーダー","keyword":"ドライブレコーダー 前後カメラ","minPrice":3000,"maxPrice":30000},
   {"id":"mobile-router","name":"モバイルルーター","keyword":"モバイルルーター SIMフリー","minPrice":1000,"maxPrice":20000}
 ]
