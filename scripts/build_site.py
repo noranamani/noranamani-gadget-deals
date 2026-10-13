@@ -79,6 +79,18 @@ def product_card(item: dict, editorial_reason: str = "") -> str:
 def layout(site: dict, title: str, body: str, description: str = "") -> str:
     site_name = esc(site.get("site_name", "noranamani GADGET DEALS"))
     desc = esc(description or site.get("tagline", "ガジェットの価格比較と特価候補"))
+    category_queries = load(CONFIG / "queries.json", [])
+    category_nav = "".join(
+        f'<a href="{esc(category_filename(str(row.get("id") or "")))}">{esc(row.get("name"))}</a>'
+        for row in category_queries
+        if isinstance(row, dict)
+    )
+    sidebar = f'''<aside class="side-nav" aria-label="カテゴリナビゲーション">
+      <div class="side-nav-title">カテゴリ</div>
+      <a href="index.html">ホーム</a>
+      {category_nav}
+      <a href="deals.html">今日の特価候補</a>
+    </aside>'''
     return f'''<!doctype html>
 <html lang="ja"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -87,8 +99,8 @@ def layout(site: dict, title: str, body: str, description: str = "") -> str:
 <meta name="google-site-verification" content="SOlcKHA0_jr9rUKvudZcu9H27wc2si9Kq6B4anfCE6U" />
 <link rel="stylesheet" href="assets/style.css">
 </head><body>
-<header><div class="wrap header-inner"><a class="brand" href="index.html">{site_name}</a><nav><a href="categories.html">カテゴリ一覧</a><a href="deals.html">今日の特価候補</a><a href="methodology.html">比較方法</a><a href="{esc(site.get('note_url'))}" target="_blank" rel="noopener">実体験note</a></nav></div></header>
-<main class="wrap">{body}</main>
+<header><div class="wrap header-inner"><a class="brand" href="index.html">{site_name}</a><nav><a href="deals.html">今日の特価候補</a><a href="methodology.html">比較方法</a><a href="{esc(site.get('note_url'))}" target="_blank" rel="noopener">実体験note</a></nav></div></header>
+<div class="site-shell">{sidebar}<main class="main-content">{body}</main></div>
 <footer><div class="wrap"><p>このサイトには楽天アフィリエイトのリンクが含まれます。価格・在庫等は取得時点の情報です。購入前に販売ページをご確認ください。</p><p><a href="privacy.html">運営・プライバシー</a> ・ Supported by Rakuten Developers</p></div></footer>
 </body></html>'''
 
