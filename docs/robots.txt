@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://noranamani.github.io/noranamani-gadget-deals/sitemap.xml
