@@ -40,7 +40,7 @@ def category_filename(category_id: str) -> str:
     return f"category-{category_id}.html"
 
 
-def product_card(item: dict, editorial_reason: str = "") -> str:
+def product_card(item: dict, editorial_reason: str = "", sort_order: int = 0) -> str:
     img = esc(item.get("image"))
     image_html = f'<img src="{img}" alt="" loading="lazy">' if img else '<div class="noimg">No image</div>'
     badges = []
@@ -61,7 +61,11 @@ def product_card(item: dict, editorial_reason: str = "") -> str:
             change_text = f"{pct(abs(float(drop)))}高"
         history_line = f'<div class="history">履歴中央値 {yen(item["baselinePrice"])} → 現在 {yen(item["price"])}（{change_text}）</div>'
     reason = f'<p class="reason">{esc(editorial_reason)}</p>' if editorial_reason else ""
-    return f'''<article class="product-card">
+    data_price = int(item.get("price") or 0)
+    data_score = float(item.get("score") or 0)
+    data_reviews = int(item.get("reviewCount") or 0)
+    data_drop = float(drop) if drop is not None else -999.0
+    return f'''<article class="product-card" data-order="{sort_order}" data-price="{data_price}" data-score="{data_score}" data-reviews="{data_reviews}" data-drop="{data_drop}">
       <a class="product-image" href="{esc(item.get('url'))}" rel="sponsored nofollow" target="_blank">{image_html}</a>
       <div class="product-body">
         <div class="badges">{''.join(badges)}</div>
@@ -76,15 +80,20 @@ def product_card(item: dict, editorial_reason: str = "") -> str:
     </article>'''
 
 
-def layout(site: dict, title: str, body: str, description: str = "") -> str:
+def layout(site: dict, title: str, body: str, description: str = "", active_category_id: str = "") -> str:
     site_name = esc(site.get("site_name", "noranamani GADGET DEALS"))
     desc = esc(description or site.get("tagline", "ガジェットの価格比較と特価候補"))
     category_queries = load(CONFIG / "queries.json", [])
-    category_nav = "".join(
-        f'<a href="{esc(category_filename(str(row.get("id") or "")))}">{esc(row.get("name"))}</a>'
-        for row in category_queries
-        if isinstance(row, dict)
-    )
+    category_nav_parts = []
+    for row in category_queries:
+        if not isinstance(row, dict):
+            continue
+        category_id = str(row.get("id") or "")
+        active_class = ' class="active"' if category_id == active_category_id else ""
+        category_nav_parts.append(
+            f'<a{active_class} href="{esc(category_filename(category_id))}">{esc(row.get("name"))}</a>'
+        )
+    category_nav = "".join(category_nav_parts)
     sidebar = f'''<aside class="side-nav" aria-label="カテゴリナビゲーション">
       <div class="side-nav-title">カテゴリ</div>
       <a href="index.html">ホーム</a>
@@ -102,6 +111,27 @@ def layout(site: dict, title: str, body: str, description: str = "") -> str:
 <header><div class="wrap header-inner"><a class="brand" href="index.html">{site_name}</a><nav><a href="deals.html">今日の特価候補</a><a href="methodology.html">比較方法</a><a href="{esc(site.get('note_url'))}" target="_blank" rel="noopener">実体験note</a></nav></div></header>
 <div class="site-shell">{sidebar}<main class="main-content">{body}</main></div>
 <footer><div class="wrap"><p>このサイトには楽天アフィリエイトのリンクが含まれます。価格・在庫等は取得時点の情報です。購入前に販売ページをご確認ください。</p><p><a href="privacy.html">運営・プライバシー</a> ・ Supported by Rakuten Developers</p></div></footer>
+<script>
+document.addEventListener("click", function(event) {
+  const button = event.target.closest("[data-sort]");
+  if (!button) return;
+  const grid = document.getElementById("category-products");
+  if (!grid) return;
+  const key = button.dataset.sort;
+  const items = Array.from(grid.querySelectorAll(".product-card"));
+  const value = (item, name) => Number(item.dataset[name] || 0);
+  items.sort((a, b) => {
+    if (key === "price") return value(a, "price") - value(b, "price");
+    if (key === "reviews") return value(b, "reviews") - value(a, "reviews");
+    if (key === "drop") return value(b, "drop") - value(a, "drop");
+    if (key === "score") return value(b, "score") - value(a, "score");
+    return value(a, "order") - value(b, "order");
+  });
+  items.forEach((item) => grid.appendChild(item));
+  document.querySelectorAll("[data-sort]").forEach((x) => x.classList.remove("active"));
+  button.classList.add("active");
+});
+</script>
 </body></html>'''
 
 
@@ -172,6 +202,7 @@ def main() -> None:
     )
 
     for cat in products.get("categories", []):
+        category_id = str(cat.get("id") or "")
         note = notes.get(cat.get("id"), {})
         summary_text = str(note.get("summary") or f"{cat.get('keyword')} の検索結果を、価格・レビュー・送料・ポイント・保存した価格履歴で比較しています。")
         watchouts = note.get("watchouts") or []
@@ -181,13 +212,27 @@ def main() -> None:
         if top_code:
             ordered.sort(key=lambda x: (0 if x.get("code") == top_code else 1, -float(x.get("score") or 0)))
         cards = []
-        for item in ordered:
+        for index, item in enumerate(ordered):
             reason = "比較ピック" if item.get("code") == top_code else ""
-            cards.append(product_card(item, reason))
-        category_body = f'''<section class="hero compact"><p class="eyebrow">毎日自動更新</p><h1>{esc(cat.get('name'))}の価格比較</h1><p>{esc(summary_text)}</p><div class="stats"><span>掲載商品 {len(ordered)}</span><span>検索条件 {esc(cat.get('keyword'))}</span></div></section>{watch_html}<div class="grid">{''.join(cards)}</div><p class="updated">最終データ更新: {esc(updated)}</p>'''
+            cards.append(product_card(item, reason, index))
+
+        score_top = sorted(cat.get("items", []), key=lambda x: -float(x.get("score") or 0))[:5]
+        table_rows = []
+        for index, item in enumerate(score_top, 1):
+            deal_text = "大幅値下げ" if item.get("dealLevel") == "strong" else ("特価候補" if item.get("isDeal") else "—")
+            table_rows.append(
+                f'''<tr><td class="rank-cell">{index}</td><td class="compare-product"><a href="{esc(item.get('url'))}" rel="sponsored nofollow" target="_blank">{esc(item.get('name'))}</a></td><td>{yen(item.get('price'))}</td><td>{float(item.get('score') or 0):.1f}</td><td>{int(item.get('reviewCount') or 0):,}件</td><td>{esc(deal_text)}</td></tr>'''
+            )
+        compare_table = ""
+        if table_rows:
+            compare_table = f'''<section class="compare-box"><div class="section-head"><h2>比較スコア上位5件</h2><span>価格・レビュー・送料・ポイント・価格履歴をもとに比較</span></div><div class="compare-table-wrap"><table class="compare-table"><thead><tr><th>#</th><th>商品</th><th>価格</th><th>スコア</th><th>レビュー</th><th>価格状況</th></tr></thead><tbody>{''.join(table_rows)}</tbody></table></div></section>'''
+
+        sort_toolbar = '''<div class="sort-toolbar"><span>並べ替え</span><div class="sort-buttons"><button type="button" class="active" data-sort="default">おすすめ順</button><button type="button" data-sort="score">比較スコア順</button><button type="button" data-sort="price">価格が安い順</button><button type="button" data-sort="reviews">レビュー件数順</button><button type="button" data-sort="drop">値下がり順</button></div></div>'''
+        breadcrumb = f'''<nav class="breadcrumb" aria-label="パンくず"><a href="index.html">ホーム</a><span>›</span><span>{esc(cat.get('name'))}</span></nav>'''
+        category_body = f'''{breadcrumb}<section class="hero compact category-hero"><p class="eyebrow">毎日自動更新</p><h1>{esc(cat.get('name'))}の価格比較</h1><p>{esc(summary_text)}</p><div class="stats"><span>掲載商品 {len(ordered)}</span><span>検索条件 {esc(cat.get('keyword'))}</span><span>最終更新 {esc(updated)}</span></div></section><section class="guide-box"><h2>選ぶときのチェックポイント</h2>{watch_html if watch_html else '<p>価格だけでなく、レビュー、送料、ポイント、価格履歴も合わせて比較してください。</p>'}</section>{compare_table}<section><div class="section-head"><h2>商品一覧</h2><span>{len(ordered)}件</span></div>{sort_toolbar}<div class="grid" id="category-products">{''.join(cards)}</div></section><p class="updated">最終データ更新: {esc(updated)}</p>'''
         description = f"{cat.get('name')}の価格、レビュー、送料、ポイント、価格履歴を比較。毎日更新。"
-        (DOCS / category_filename(str(cat.get("id") or ""))).write_text(
-            layout(site, f"{cat.get('name')}の価格比較", category_body, description),
+        (DOCS / category_filename(category_id)).write_text(
+            layout(site, f"{cat.get('name')}の価格比較", category_body, description, category_id),
             encoding="utf-8",
         )
 
