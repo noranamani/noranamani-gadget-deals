@@ -110,7 +110,7 @@ def main() -> None:
     hero = f'''<section class="hero"><p class="eyebrow">毎日自動更新</p><h1>{esc(editorial.get('dailyHeadline') or site.get('tagline'))}</h1><p>{esc(editorial.get('dailySummary'))}</p><div class="stats"><span>取得商品 {int(products.get('stats',{}).get('products',0))}</span><span>追跡商品 {int(products.get('stats',{}).get('tracked',0))}</span><span>特価候補 {int(products.get('stats',{}).get('deals',0))}</span></div></section>'''
     sections = [hero]
     if featured:
-        sections.append('<section><div class="section-head"><h2>Codexが選んだ注目候補</h2><a href="deals.html">特価候補をすべて見る</a></div><div class="grid">' + ''.join(featured) + '</div></section>')
+        sections.append('<section><div class="section-head"><h2>注目候補</h2><a href="deals.html">特価候補をすべて見る</a></div><div class="grid">' + ''.join(featured) + '</div></section>')
 
     for cat in products.get("categories", []):
         note = notes.get(cat.get("id"), {})
@@ -123,7 +123,7 @@ def main() -> None:
         if top_code:
             ordered.sort(key=lambda x: (0 if x.get("code") == top_code else 1, -float(x.get("score") or 0)))
         for item in ordered[:6]:
-            reason = "AI比較ピック" if item.get("code") == top_code else ""
+            reason = "比較ピック" if item.get("code") == top_code else ""
             cards.append(product_card(item, reason))
         sections.append(f'''<section id="{esc(cat.get('id'))}"><div class="section-head"><h2>{esc(cat.get('name'))}</h2><span>{esc(cat.get('keyword'))}</span></div>{summary}{watch_html}<div class="grid">{''.join(cards)}</div></section>''')
 
@@ -139,10 +139,10 @@ def main() -> None:
         deal_body += '<div class="empty">価格履歴が十分にたまるまで、特価候補は表示しません。</div>'
     (DOCS / "deals.html").write_text(layout(site, "今日の特価候補", deal_body), encoding="utf-8")
 
-    method_body = '''<section class="hero compact"><h1>比較方法</h1><p>価格だけに偏らない機械スコアと、保存した価格履歴を組み合わせています。</p></section>
+    method_body = '''<section class="hero compact"><h1>比較方法</h1><p>価格だけに偏らない比較スコアと、保存した価格履歴を組み合わせています。</p></section>
 <section class="prose"><h2>比較スコア</h2><p>レビュー平均、レビュー件数、同一検索カテゴリ内の相対価格、送料無料、ポイント倍率、価格履歴上の値下がりを組み合わせた参考値です。製品性能そのものを表す点数ではありません。</p>
 <h2>特価候補</h2><p>最低5回の価格記録がある商品について、直近価格履歴の中央値から原則10%以上安い場合などを候補にします。市場全体の最安値を保証するものではありません。</p>
-<h2>AIコメント</h2><p>Codexは楽天APIから取得した事実と、このサイトの価格履歴だけを根拠に短い比較コメントを生成します。APIにない仕様や実測性能は推測しません。</p></section>'''
+<h2>比較コメント</h2><p>楽天APIから取得した事実と、このサイトの価格履歴を根拠に短い比較コメントを掲載します。APIにない仕様や実測性能は掲載しません。</p></section>'''
     (DOCS / "methodology.html").write_text(layout(site, "比較方法", method_body), encoding="utf-8")
 
     privacy_body = '''<section class="hero compact"><h1>運営・プライバシー</h1></section><section class="prose"><h2>運営</h2><p>noranamani が、ガジェット選びの比較材料を提供する目的で運営しています。</p><h2>広告について</h2><p>当サイトは楽天アフィリエイトを利用しています。リンク経由の購入により運営者が紹介料を受け取る場合があります。</p><h2>データについて</h2><p>価格、レビュー、送料等は更新時点の楽天市場APIデータです。正確な最新情報は販売ページをご確認ください。</p></section>'''
