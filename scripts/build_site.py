@@ -149,9 +149,12 @@ def main() -> None:
     (DOCS / "privacy.html").write_text(layout(site, "運営・プライバシー", privacy_body), encoding="utf-8")
 
     (DOCS / "feed.json").write_text(json.dumps({"updatedAt": products.get("updatedAt"), "deals": deals[:20]}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    (DOCS / "robots.txt").write_text("User-agent: *\nAllow: /\n", encoding="utf-8")
-
     site_url = str(site.get("site_url") or "").rstrip("/")
+    robots = "User-agent: *\nAllow: /\n"
+    if site_url:
+        robots += f"Sitemap: {site_url}/sitemap.xml\n"
+    (DOCS / "robots.txt").write_text(robots, encoding="utf-8")
+
     if site_url:
         pages = ["index.html", "deals.html", "methodology.html", "privacy.html"]
         urls = "".join(f"<url><loc>{esc(site_url + '/' + p)}</loc></url>" for p in pages)
