@@ -37,6 +37,12 @@ def main():
         if row.get("topPickCode") and row.get("topPickCode") not in known_codes:
             fail(f"unknown topPickCode: {row.get('topPickCode')}")
 
+    public_editorial = json.dumps(editorial, ensure_ascii=False)
+    forbidden_editorial_terms = ["Codex", "OpenAI", "生成AI", "人工知能", "LLM"]
+    for term in forbidden_editorial_terms:
+        if term in public_editorial:
+            fail(f"public editorial must not mention generation method: {term}")
+
     for path in [DOCS / "index.html", DOCS / "deals.html", DOCS / "methodology.html", DOCS / "privacy.html"]:
         if not path.exists() or path.stat().st_size < 300:
             fail(f"missing or too small: {path}")
