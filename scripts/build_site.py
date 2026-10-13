@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import html
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,6 +35,19 @@ def pct(v) -> str:
     if v is None:
         return ""
     return f"{float(v):.1f}%"
+
+
+def format_updated_at(value) -> str:
+    if not value:
+        return "未更新"
+    try:
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        jst = dt.astimezone(timezone(timedelta(hours=9)))
+        return jst.strftime("%Y/%m/%d %H:%M 更新")
+    except (TypeError, ValueError):
+        return str(value)
 
 
 def category_filename(category_id: str) -> str:
@@ -175,7 +189,7 @@ def main() -> None:
         category_url = category_filename(str(cat.get("id") or ""))
         sections.append(f'''<section id="{esc(cat.get('id'))}"><div class="section-head"><h2><a href="{esc(category_url)}">{esc(cat.get('name'))}</a></h2><div><span>{esc(cat.get('keyword'))}</span> ・ <a href="{esc(category_url)}">一覧を見る</a></div></div>{summary}{watch_html}<div class="grid">{''.join(cards)}</div></section>''')
 
-    updated = products.get("updatedAt") or "未更新"
+    updated = format_updated_at(products.get("updatedAt"))
     sections.append(f'<p class="updated">最終データ更新: {esc(updated)}</p>')
     (DOCS / "index.html").write_text(layout(site, "ホーム", ''.join(sections)), encoding="utf-8")
 
