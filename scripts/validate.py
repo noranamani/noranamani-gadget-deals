@@ -8,6 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 DOCS = ROOT / "docs"
+CONFIG = ROOT / "config"
 
 
 def load(path):
@@ -45,7 +46,9 @@ def main():
     if re.search(r"(?<![A-Za-z])AI(?![A-Za-z])", public_editorial, flags=re.IGNORECASE):
         fail("public editorial must not mention generation method: AI")
 
-    for path in [DOCS / "index.html", DOCS / "deals.html", DOCS / "methodology.html", DOCS / "privacy.html"]:
+    queries = load(CONFIG / "queries.json")
+    category_pages = [DOCS / f"category-{row['id']}.html" for row in queries]
+    for path in [DOCS / "index.html", DOCS / "deals.html", DOCS / "methodology.html", DOCS / "privacy.html", *category_pages]:
         if not path.exists() or path.stat().st_size < 300:
             fail(f"missing or too small: {path}")
         text = path.read_text(encoding="utf-8")
