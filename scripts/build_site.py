@@ -189,6 +189,14 @@ def main() -> None:
         category_url = category_filename(str(cat.get("id") or ""))
         sections.append(f'''<section id="{esc(cat.get('id'))}"><div class="section-head"><h2><a href="{esc(category_url)}">{esc(cat.get('name'))}</a></h2><div><span>{esc(cat.get('keyword'))}</span> ・ <a href="{esc(category_url)}">一覧を見る</a></div></div>{summary}{watch_html}<div class="grid">{''.join(cards)}</div></section>''')
 
+    current_category_files = {
+        category_filename(str(cat.get("id") or ""))
+        for cat in products.get("categories", [])
+    }
+    for stale_path in DOCS.glob("category-*.html"):
+        if stale_path.name not in current_category_files:
+            stale_path.unlink()
+
     updated = format_updated_at(products.get("updatedAt"))
     sections.append(f'<p class="updated">最終データ更新: {esc(updated)}</p>')
     (DOCS / "index.html").write_text(layout(site, "ホーム", ''.join(sections)), encoding="utf-8")
@@ -211,7 +219,7 @@ def main() -> None:
 
     categories_body = f'''<section class="hero compact"><p class="eyebrow">カテゴリ目次</p><h1>カテゴリ一覧</h1><p>比較したいジャンルへすぐ移動できます。</p><div class="category-chip-row">{''.join(category_links)}</div></section><div class="category-nav-grid">{''.join(category_cards)}</div>'''
     (DOCS / "categories.html").write_text(
-        layout(site, "カテゴリ一覧", categories_body, "ガジェット比較カテゴリの一覧。USB-C充電器、ワイヤレス充電、microSD、車載ガジェット、モバイルルーターへすぐ移動できます。"),
+        layout(site, "カテゴリ一覧", categories_body, "ガジェット比較カテゴリの一覧。充電器、ストレージ、車載ガジェット、モバイル通信機器などを比較できます。"),
         encoding="utf-8",
     )
 
