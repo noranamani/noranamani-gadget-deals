@@ -8,6 +8,7 @@ import statistics
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -33,11 +34,43 @@ def save_json(path: Path, obj) -> None:
     path.write_text(json.dumps(obj, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+REQUEST_INTERVAL_SECONDS = 1.2
+MAX_API_RETRIES = 5
+_last_request_started = 0.0
+
+
+def _throttle_request() -> None:
+    global _last_request_started
+    elapsed = time.monotonic() - _last_request_started
+    wait = REQUEST_INTERVAL_SECONDS - elapsed
+    if wait > 0:
+        time.sleep(wait)
+    _last_request_started = time.monotonic()
+
+
 def api_get(params: dict, access_key: str) -> dict:
     url = ENDPOINT + "?" + urlencode(params)
     req = Request(url, headers={"accessKey": access_key, "User-Agent": "noranamani-gadget-deals/2.0"})
-    with urlopen(req, timeout=45) as response:
-        return json.loads(response.read().decode("utf-8"))
+
+    for attempt in range(MAX_API_RETRIES):
+        _throttle_request()
+        try:
+            with urlopen(req, timeout=45) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except HTTPError as exc:
+            if exc.code != 429 or attempt == MAX_API_RETRIES - 1:
+                raise
+
+            retry_after = exc.headers.get("Retry-After")
+            try:
+                delay = max(float(retry_after), 2.0) if retry_after else min(2 ** (attempt + 1), 30)
+            except ValueError:
+                delay = min(2 ** (attempt + 1), 30)
+
+            print(f"Rakuten API returned HTTP 429; retrying in {delay:.1f}s...", flush=True)
+            time.sleep(delay)
+
+    raise RuntimeError("Rakuten API request failed after retries")
 
 
 def unwrap_items(data: dict) -> list[dict]:
@@ -177,7 +210,6 @@ def main() -> None:
                 code = str(item.get("itemCode") or "")
                 if code:
                     merged[code] = item
-            time.sleep(0.55)
 
         raw_items = list(merged.values())
         prices = [int(x.get("itemPrice") or 0) for x in raw_items if int(x.get("itemPrice") or 0) > 0]
