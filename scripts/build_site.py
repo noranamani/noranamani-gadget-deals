@@ -80,6 +80,7 @@ def layout(site: dict, title: str, body: str, description: str = "") -> str:
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{esc(title)} | {site_name}</title>
 <meta name="description" content="{desc}">
+<meta name="google-site-verification" content="SOlcKHA0_jr9rUKvudZcu9H27wc2si9Kq6B4anfCE6U" />
 <link rel="stylesheet" href="assets/style.css">
 </head><body>
 <header><div class="wrap header-inner"><a class="brand" href="index.html">{site_name}</a><nav><a href="deals.html">今日の特価候補</a><a href="methodology.html">比較方法</a><a href="{esc(site.get('note_url'))}" target="_blank" rel="noopener">実体験note</a></nav></div></header>
