@@ -36,6 +36,10 @@ def pct(v) -> str:
     return f"{float(v):.1f}%"
 
 
+def category_filename(category_id: str) -> str:
+    return f"category-{category_id}.html"
+
+
 def product_card(item: dict, editorial_reason: str = "") -> str:
     img = esc(item.get("image"))
     image_html = f'<img src="{img}" alt="" loading="lazy">' if img else '<div class="noimg">No image</div>'
@@ -126,11 +130,32 @@ def main() -> None:
         for item in ordered[:6]:
             reason = "比較ピック" if item.get("code") == top_code else ""
             cards.append(product_card(item, reason))
-        sections.append(f'''<section id="{esc(cat.get('id'))}"><div class="section-head"><h2>{esc(cat.get('name'))}</h2><span>{esc(cat.get('keyword'))}</span></div>{summary}{watch_html}<div class="grid">{''.join(cards)}</div></section>''')
+        category_url = category_filename(str(cat.get("id") or ""))
+        sections.append(f'''<section id="{esc(cat.get('id'))}"><div class="section-head"><h2><a href="{esc(category_url)}">{esc(cat.get('name'))}</a></h2><div><span>{esc(cat.get('keyword'))}</span> ・ <a href="{esc(category_url)}">一覧を見る</a></div></div>{summary}{watch_html}<div class="grid">{''.join(cards)}</div></section>''')
 
     updated = products.get("updatedAt") or "未更新"
     sections.append(f'<p class="updated">最終データ更新: {esc(updated)}</p>')
     (DOCS / "index.html").write_text(layout(site, "ホーム", ''.join(sections)), encoding="utf-8")
+
+    for cat in products.get("categories", []):
+        note = notes.get(cat.get("id"), {})
+        summary_text = str(note.get("summary") or f"{cat.get('keyword')} の検索結果を、価格・レビュー・送料・ポイント・保存した価格履歴で比較しています。")
+        watchouts = note.get("watchouts") or []
+        watch_html = '<ul class="watchouts">' + ''.join(f'<li>{esc(x)}</li>' for x in watchouts[:4]) + '</ul>' if watchouts else ""
+        top_code = note.get("topPickCode") or ""
+        ordered = list(cat.get("items", []))
+        if top_code:
+            ordered.sort(key=lambda x: (0 if x.get("code") == top_code else 1, -float(x.get("score") or 0)))
+        cards = []
+        for item in ordered:
+            reason = "比較ピック" if item.get("code") == top_code else ""
+            cards.append(product_card(item, reason))
+        category_body = f'''<section class="hero compact"><p class="eyebrow">毎日自動更新</p><h1>{esc(cat.get('name'))}の価格比較</h1><p>{esc(summary_text)}</p><div class="stats"><span>掲載商品 {len(ordered)}</span><span>検索条件 {esc(cat.get('keyword'))}</span></div></section>{watch_html}<div class="grid">{''.join(cards)}</div><p class="updated">最終データ更新: {esc(updated)}</p>'''
+        description = f"{cat.get('name')}の価格、レビュー、送料、ポイント、価格履歴を比較。毎日更新。"
+        (DOCS / category_filename(str(cat.get("id") or ""))).write_text(
+            layout(site, f"{cat.get('name')}の価格比較", category_body, description),
+            encoding="utf-8",
+        )
 
     deals = products.get("deals", [])
     deal_body = '<section class="hero compact"><p class="eyebrow">価格履歴ベース</p><h1>今日の特価候補</h1><p>このサイト自身が保存した価格履歴との比較です。市場全体の最安値を意味しません。</p></section>'
@@ -158,6 +183,7 @@ def main() -> None:
 
     if site_url:
         pages = ["index.html", "deals.html", "methodology.html", "privacy.html"]
+        pages += [category_filename(str(cat.get("id") or "")) for cat in products.get("categories", [])]
         urls = "".join(f"<url><loc>{esc(site_url + '/' + p)}</loc></url>" for p in pages)
         sitemap = f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>'
         (DOCS / "sitemap.xml").write_text(sitemap, encoding="utf-8")
