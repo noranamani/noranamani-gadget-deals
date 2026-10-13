@@ -87,7 +87,7 @@ def layout(site: dict, title: str, body: str, description: str = "") -> str:
 <meta name="google-site-verification" content="SOlcKHA0_jr9rUKvudZcu9H27wc2si9Kq6B4anfCE6U" />
 <link rel="stylesheet" href="assets/style.css">
 </head><body>
-<header><div class="wrap header-inner"><a class="brand" href="index.html">{site_name}</a><nav><a href="deals.html">今日の特価候補</a><a href="methodology.html">比較方法</a><a href="{esc(site.get('note_url'))}" target="_blank" rel="noopener">実体験note</a></nav></div></header>
+<header><div class="wrap header-inner"><a class="brand" href="index.html">{site_name}</a><nav><a href="categories.html">カテゴリ一覧</a><a href="deals.html">今日の特価候補</a><a href="methodology.html">比較方法</a><a href="{esc(site.get('note_url'))}" target="_blank" rel="noopener">実体験note</a></nav></div></header>
 <main class="wrap">{body}</main>
 <footer><div class="wrap"><p>このサイトには楽天アフィリエイトのリンクが含まれます。価格・在庫等は取得時点の情報です。購入前に販売ページをご確認ください。</p><p><a href="privacy.html">運営・プライバシー</a> ・ Supported by Rakuten Developers</p></div></footer>
 </body></html>'''
@@ -137,6 +137,28 @@ def main() -> None:
     sections.append(f'<p class="updated">最終データ更新: {esc(updated)}</p>')
     (DOCS / "index.html").write_text(layout(site, "ホーム", ''.join(sections)), encoding="utf-8")
 
+    category_links = []
+    category_cards = []
+    for cat in products.get("categories", []):
+        category_url = category_filename(str(cat.get("id") or ""))
+        note = notes.get(cat.get("id"), {})
+        summary_text = str(note.get("summary") or f"{cat.get('keyword')} の検索結果を、価格・レビュー・送料・ポイント・保存した価格履歴で比較しています。")
+        item_count = len(cat.get("items", []))
+        category_links.append(f'<a class="category-chip" href="{esc(category_url)}">{esc(cat.get("name"))}</a>')
+        category_cards.append(f'''<article class="category-nav-card">
+          <p class="eyebrow">比較カテゴリ</p>
+          <h2><a href="{esc(category_url)}">{esc(cat.get("name"))}</a></h2>
+          <p>{esc(summary_text)}</p>
+          <div class="meta">{esc(cat.get("keyword"))} ・ 掲載 {item_count}件</div>
+          <a class="cta" href="{esc(category_url)}">このカテゴリを見る</a>
+        </article>''')
+
+    categories_body = f'''<section class="hero compact"><p class="eyebrow">カテゴリ目次</p><h1>カテゴリ一覧</h1><p>比較したいジャンルへすぐ移動できます。</p><div class="category-chip-row">{''.join(category_links)}</div></section><div class="category-nav-grid">{''.join(category_cards)}</div>'''
+    (DOCS / "categories.html").write_text(
+        layout(site, "カテゴリ一覧", categories_body, "ガジェット比較カテゴリの一覧。USB-C充電器、ワイヤレス充電、microSD、車載ガジェット、モバイルルーターへすぐ移動できます。"),
+        encoding="utf-8",
+    )
+
     for cat in products.get("categories", []):
         note = notes.get(cat.get("id"), {})
         summary_text = str(note.get("summary") or f"{cat.get('keyword')} の検索結果を、価格・レビュー・送料・ポイント・保存した価格履歴で比較しています。")
@@ -182,7 +204,7 @@ def main() -> None:
     (DOCS / "robots.txt").write_text(robots, encoding="utf-8")
 
     if site_url:
-        pages = ["index.html", "deals.html", "methodology.html", "privacy.html"]
+        pages = ["index.html", "categories.html", "deals.html", "methodology.html", "privacy.html"]
         pages += [category_filename(str(cat.get("id") or "")) for cat in products.get("categories", [])]
         urls = "".join(f"<url><loc>{esc(site_url + '/' + p)}</loc></url>" for p in pages)
         sitemap = f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>'
