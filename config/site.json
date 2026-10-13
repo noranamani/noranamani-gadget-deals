@@ -1,0 +1,13 @@
+{
+  "site_name": "noranamani GADGET DEALS",
+  "tagline": "ガジェットの価格比較と特価候補を毎日自動更新",
+  "note_url": "https://note.com/noranamani",
+  "site_url": "https://noranamani.github.io/noranamani-gadget-deals",
+  "currency": "JPY",
+  "history_days": 120,
+  "deal_min_samples": 5,
+  "deal_drop_pct": 10.0,
+  "strong_deal_drop_pct": 20.0,
+  "new_low_min_drop_pct": 5.0,
+  "deal_min_reviews": 10
+}
