@@ -76,7 +76,7 @@ def comparison_score(item: dict, category_prices: list[int], drop_pct: float | N
     rating = float(item.get("reviewAverage") or 0)
     reviews = int(item.get("reviewCount") or 0)
     price = int(item.get("itemPrice") or 0)
-    postage = int(item.get("postageFlag") or 1)
+    postage = int(item.get("postageFlag", 1))
     point_rate = int(item.get("pointRate") or 1)
 
     rating_score = min(max(rating / 5.0, 0), 1) * 30
@@ -201,7 +201,7 @@ def main() -> None:
                 "url": str(item.get("affiliateUrl") or item.get("itemUrl") or ""),
                 "reviewAverage": float(item.get("reviewAverage") or 0),
                 "reviewCount": review_count,
-                "postageIncluded": int(item.get("postageFlag") or 1) == 0,
+                "postageIncluded": int(item.get("postageFlag", 1)) == 0,
                 "pointRate": int(item.get("pointRate") or 1),
                 "shopName": str(item.get("shopName") or ""),
                 "saleStart": str(item.get("startTime") or ""),
