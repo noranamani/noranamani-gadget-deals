@@ -44,4 +44,25 @@
           <a class="cta" href="category-mobile-router.html">このカテゴリを見る</a>
         </article></div></main></div>
 <footer><div class="wrap"><p>このサイトには楽天アフィリエイトのリンクが含まれます。価格・在庫等は取得時点の情報です。購入前に販売ページをご確認ください。</p><p><a href="privacy.html">運営・プライバシー</a> ・ Supported by Rakuten Developers</p></div></footer>
+<script>
+document.addEventListener("click", function(event) {
+  const button = event.target.closest("[data-sort]");
+  if (!button) return;
+  const grid = document.getElementById("category-products");
+  if (!grid) return;
+  const key = button.dataset.sort;
+  const items = Array.from(grid.querySelectorAll(".product-card"));
+  const value = (item, name) => Number(item.dataset[name] || 0);
+  items.sort((a, b) => {
+    if (key === "price") return value(a, "price") - value(b, "price");
+    if (key === "reviews") return value(b, "reviews") - value(a, "reviews");
+    if (key === "drop") return value(b, "drop") - value(a, "drop");
+    if (key === "score") return value(b, "score") - value(a, "score");
+    return value(a, "order") - value(b, "order");
+  });
+  items.forEach((item) => grid.appendChild(item));
+  document.querySelectorAll("[data-sort]").forEach((x) => x.classList.remove("active"));
+  button.classList.add("active");
+});
+</script>
 </body></html>
