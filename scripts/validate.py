@@ -48,7 +48,7 @@ def main():
 
     queries = load(CONFIG / "queries.json")
     category_pages = [DOCS / f"category-{row['id']}.html" for row in queries]
-    for path in [DOCS / "index.html", DOCS / "categories.html", DOCS / "deals.html", DOCS / "methodology.html", DOCS / "privacy.html", *category_pages]:
+    for path in [DOCS / "index.html", DOCS / "categories.html", DOCS / "price-drops.html", DOCS / "deals.html", DOCS / "methodology.html", DOCS / "privacy.html", *category_pages]:
         if not path.exists() or path.stat().st_size < 300:
             fail(f"missing or too small: {path}")
         text = path.read_text(encoding="utf-8")
