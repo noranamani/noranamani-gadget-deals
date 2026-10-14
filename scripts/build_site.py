@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import html
 import json
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -70,6 +71,20 @@ def item_matches_comparison(item: dict, spec: dict) -> bool:
     return True
 
 
+def comparison_price_is_uncertain(item: dict, spec: dict) -> bool:
+    variant_type = str(spec.get("priceVariantType") or "")
+    if not variant_type:
+        return False
+    text = str(item.get("name") or "").lower()
+    if variant_type == "power":
+        values = {int(x) for x in re.findall(r"(?<!\\d)(\\d{1,3})\\s*w\\b", text, flags=re.IGNORECASE)}
+        return len(values) > 1
+    if variant_type == "capacity":
+        values = {(number, unit) for number, unit in re.findall(r"(?<![a-z0-9])(\\d+(?:\\.\\d+)?)\\s*(gb|tb)\\b", text, flags=re.IGNORECASE)}
+        return len(values) > 1
+    return False
+
+
 def unique_current_items(products: dict) -> list[dict]:
     by_code = {}
     for cat in products.get("categories", []):
@@ -83,11 +98,13 @@ def unique_current_items(products: dict) -> list[dict]:
     return list(by_code.values())
 
 
-def product_card(item: dict, editorial_reason: str = "", sort_order: int = 0) -> str:
+def product_card(item: dict, editorial_reason: str = "", sort_order: int = 0, price_uncertain: bool = False) -> str:
     img = esc(item.get("image"))
     image_html = f'<img src="{img}" alt="" loading="lazy">' if img else '<div class="noimg">No image</div>'
     badges = []
-    if item.get("dealLevel") == "strong":
+    if price_uncertain:
+        badges.append('<span class="badge variant">仕様選択あり</span>')
+    elif item.get("dealLevel") == "strong":
         badges.append('<span class="badge strong">大幅値下げ候補</span>')
     elif item.get("isDeal"):
         badges.append('<span class="badge deal">特価候補</span>')
@@ -97,7 +114,7 @@ def product_card(item: dict, editorial_reason: str = "", sort_order: int = 0) ->
         badges.append(f'<span class="badge">ポイント{int(item["pointRate"])}倍</span>')
     drop = item.get("dropPct")
     history_line = ""
-    if drop is not None and item.get("baselinePrice"):
+    if not price_uncertain and drop is not None and item.get("baselinePrice"):
         if float(drop) >= 0:
             change_text = f"{pct(drop)}安"
         else:
@@ -105,17 +122,26 @@ def product_card(item: dict, editorial_reason: str = "", sort_order: int = 0) ->
         history_line = f'<div class="history">履歴中央値 {yen(item["baselinePrice"])} → 現在 {yen(item["price"])}（{change_text}）</div>'
     reason = f'<p class="reason">{esc(editorial_reason)}</p>' if editorial_reason else ""
     data_price = int(item.get("price") or 0)
-    data_score = float(item.get("score") or 0)
+    data_score = -999.0 if price_uncertain else float(item.get("score") or 0)
     data_reviews = int(item.get("reviewCount") or 0)
-    data_drop = float(drop) if drop is not None else -999.0
-    return f'''<article class="product-card" data-order="{sort_order}" data-price="{data_price}" data-score="{data_score}" data-reviews="{data_reviews}" data-drop="{data_drop}">
+    data_drop = -999.0 if price_uncertain else (float(drop) if drop is not None else -999.0)
+    data_variant = 1 if price_uncertain else 0
+    price_html = f'<div class="price">{yen(item.get("price"))}</div>'
+    meta_html = f'<div class="meta">★ {float(item.get("reviewAverage") or 0):.2f} / {int(item.get("reviewCount") or 0):,}件 ・ 比較スコア {float(item.get("score") or 0):.1f}</div>'
+    variant_note = ""
+    if price_uncertain:
+        price_html = f'<div class="price"><span class="price-prefix">表示価格</span> {yen(item.get("price"))}</div>'
+        meta_html = f'<div class="meta">★ {float(item.get("reviewAverage") or 0):.2f} / {int(item.get("reviewCount") or 0):,}件 ・ 価格比較対象外</div>'
+        variant_note = '<p class="variant-note">複数の容量・出力などを選べる商品のため、表示価格がこの比較条件の仕様価格とは限りません。販売ページで対象仕様の価格をご確認ください。</p>'
+    return f'''<article class="product-card" data-order="{sort_order}" data-price="{data_price}" data-score="{data_score}" data-reviews="{data_reviews}" data-drop="{data_drop}" data-variant="{data_variant}">
       <a class="product-image" href="{esc(item.get('url'))}" rel="sponsored nofollow" target="_blank">{image_html}</a>
       <div class="product-body">
         <div class="badges">{''.join(badges)}</div>
         <h3>{esc(item.get('name'))}</h3>
-        <div class="price">{yen(item.get('price'))}</div>
-        <div class="meta">★ {float(item.get('reviewAverage') or 0):.2f} / {int(item.get('reviewCount') or 0):,}件 ・ 比較スコア {float(item.get('score') or 0):.1f}</div>
+        {price_html}
+        {meta_html}
         {history_line}
+        {variant_note}
         {reason}
         <div class="shop">{esc(item.get('shopName'))}</div>
         <a class="cta" href="{esc(item.get('url'))}" rel="sponsored nofollow" target="_blank">楽天市場で確認</a>
@@ -170,6 +196,8 @@ document.addEventListener("click", function(event) {{
   const items = Array.from(grid.querySelectorAll(".product-card"));
   const value = (item, name) => Number(item.dataset[name] || 0);
   items.sort((a, b) => {{
+    const variantDiff = value(a, "variant") - value(b, "variant");
+    if (variantDiff !== 0) return variantDiff;
     if (key === "price") return value(a, "price") - value(b, "price");
     if (key === "reviews") return value(b, "reviews") - value(a, "reviews");
     if (key === "drop") return value(b, "drop") - value(a, "drop");
@@ -230,11 +258,16 @@ def main() -> None:
         if not parent:
             continue
         matches = [item for item in parent.get("items", []) if item_matches_comparison(item, spec)]
-        matches.sort(key=lambda x: (-float(x.get("score") or 0), int(x.get("price") or 0), -int(x.get("reviewCount") or 0)))
+        comparable_items = [item for item in matches if not comparison_price_is_uncertain(item, spec)]
+        variant_items = [item for item in matches if comparison_price_is_uncertain(item, spec)]
+        comparable_items.sort(key=lambda x: (-float(x.get("score") or 0), int(x.get("price") or 0), -int(x.get("reviewCount") or 0)))
+        variant_items.sort(key=lambda x: (-int(x.get("reviewCount") or 0), int(x.get("price") or 0)))
+        matches = comparable_items + variant_items
         activate_date = rollout_start + timedelta(days=int(spec.get("activateAfterDays") or 0))
         min_products = int(spec.get("minProducts") or 5)
-        if today_jst >= activate_date and len(matches) >= min_products:
-            comparison_pages.append({"spec": spec, "items": matches, "parent": parent, "activateDate": activate_date})
+        min_comparable = int(spec.get("minComparableProducts") or 0)
+        if today_jst >= activate_date and len(matches) >= min_products and len(comparable_items) >= min_comparable:
+            comparison_pages.append({"spec": spec, "items": matches, "comparableItems": comparable_items, "variantItems": variant_items, "parent": parent, "activateDate": activate_date})
 
     featured = []
     for code, reason in featured_reasons.items():
@@ -252,7 +285,7 @@ def main() -> None:
         comparison_home_cards = []
         for row in comparison_pages[:6]:
             spec = row["spec"]
-            comparison_home_cards.append(f'''<article class="category-nav-card"><p class="eyebrow">条件別比較</p><h2><a href="{esc(comparison_filename(str(spec.get('id') or '')))}">{esc(spec.get('name'))}</a></h2><p>{esc(spec.get('summary'))}</p><div class="meta">掲載 {len(row["items"])}件</div><a class="cta" href="{esc(comparison_filename(str(spec.get('id') or '')))}">比較ページを見る</a></article>''')
+            comparison_home_cards.append(f'''<article class="category-nav-card"><p class="eyebrow">条件別比較</p><h2><a href="{esc(comparison_filename(str(spec.get('id') or '')))}">{esc(spec.get('name'))}</a></h2><p>{esc(spec.get('summary'))}</p><div class="meta">価格比較 {len(row["comparableItems"])}件{f' ・ 仕様選択あり {len(row["variantItems"])}件' if row["variantItems"] else ''}</div><a class="cta" href="{esc(comparison_filename(str(spec.get('id') or '')))}">比較ページを見る</a></article>''')
         sections.append(f'''<section><div class="section-head"><h2>条件別比較</h2><a href="comparisons.html">すべて見る</a></div><div class="category-nav-grid">{''.join(comparison_home_cards)}</div></section>''')
     if featured:
         sections.append('<section><div class="section-head"><h2>注目候補</h2><a href="deals.html">特価候補をすべて見る</a></div><div class="grid">' + ''.join(featured) + '</div></section>')
@@ -290,13 +323,15 @@ def main() -> None:
     for row in comparison_pages:
         spec = row["spec"]
         items = row["items"]
+        comparable_items = row["comparableItems"]
+        variant_items = row["variantItems"]
         parent = row["parent"]
         comparison_id = str(spec.get("id") or "")
         comparison_url = comparison_filename(comparison_id)
         active_comparison_files.add(comparison_url)
-        comparison_index_cards.append(f'''<article class="category-nav-card"><p class="eyebrow">条件別比較</p><h2><a href="{esc(comparison_url)}">{esc(spec.get('name'))}</a></h2><p>{esc(spec.get('summary'))}</p><div class="meta">{esc(parent.get('name'))} ・ 掲載 {len(items)}件</div><a class="cta" href="{esc(comparison_url)}">この条件で比較する</a></article>''')
+        comparison_index_cards.append(f'''<article class="category-nav-card"><p class="eyebrow">条件別比較</p><h2><a href="{esc(comparison_url)}">{esc(spec.get('name'))}</a></h2><p>{esc(spec.get('summary'))}</p><div class="meta">{esc(parent.get('name'))} ・ 価格比較 {len(row["comparableItems"])}件{f' ・ 仕様選択あり {len(row["variantItems"])}件' if row["variantItems"] else ''}</div><a class="cta" href="{esc(comparison_url)}">この条件で比較する</a></article>''')
 
-        score_top = sorted(items, key=lambda x: -float(x.get("score") or 0))[:5]
+        score_top = sorted(comparable_items, key=lambda x: -float(x.get("score") or 0))[:5]
         table_rows = []
         for index, item in enumerate(score_top, 1):
             deal_text = "大幅値下げ" if item.get("dealLevel") == "strong" else ("特価候補" if item.get("isDeal") else "—")
@@ -307,10 +342,14 @@ def main() -> None:
 
         guide_points = spec.get("guidePoints") or []
         guide_html = '<ul class="watchouts">' + ''.join(f'<li>{esc(point)}</li>' for point in guide_points[:4]) + '</ul>' if guide_points else '<p>価格、レビュー、送料、ポイント、価格履歴を合わせて比較してください。</p>'
-        cards = ''.join(product_card(item, "", index) for index, item in enumerate(items))
+        cards = ''.join(product_card(item, "", index, False) for index, item in enumerate(comparable_items))
+        cards += ''.join(product_card(item, "", len(comparable_items) + index, True) for index, item in enumerate(variant_items))
+        variant_alert = ""
+        if variant_items:
+            variant_alert = f'''<div class="variant-alert"><strong>仕様選択が必要な商品が {len(variant_items)}件あります</strong><p>商品名に複数の容量・出力などが含まれる商品は、表示価格がこの比較条件の仕様価格とは限らないため、比較スコア上位・価格順・値下がり順の対象外として末尾に表示します。</p></div>'''
         sort_toolbar = '''<div class="sort-toolbar"><span>並べ替え</span><div class="sort-buttons"><button type="button" class="active" data-sort="default">おすすめ順</button><button type="button" data-sort="score">比較スコア順</button><button type="button" data-sort="price">価格が安い順</button><button type="button" data-sort="reviews">レビュー件数順</button><button type="button" data-sort="drop">値下がり順</button></div></div>'''
         breadcrumb = f'''<nav class="breadcrumb" aria-label="パンくず"><a href="index.html">ホーム</a><span>›</span><a href="comparisons.html">条件別比較</a><span>›</span><span>{esc(spec.get('name'))}</span></nav>'''
-        body = f'''{breadcrumb}<section class="hero compact category-hero"><p class="eyebrow">条件別比較</p><h1>{esc(spec.get('name'))}を比較</h1><p>{esc(spec.get('summary'))}</p><div class="stats"><span>掲載商品 {len(items)}</span><span>親カテゴリ <a href="{esc(category_filename(str(parent.get('id') or '')))}">{esc(parent.get('name'))}</a></span><span>最終更新 {esc(updated)}</span></div></section><section class="guide-box"><h2>選ぶときのチェックポイント</h2>{guide_html}</section>{compare_table}<section><div class="section-head"><h2>条件に一致した商品</h2><span>{len(items)}件</span></div>{sort_toolbar}<div class="grid" id="category-products">{cards}</div></section><p class="updated">最終データ更新: {esc(updated)}</p>'''
+        body = f'''{breadcrumb}<section class="hero compact category-hero"><p class="eyebrow">条件別比較</p><h1>{esc(spec.get('name'))}を比較</h1><p>{esc(spec.get('summary'))}</p><div class="stats"><span>価格比較 {len(comparable_items)}件</span>{f'<span>仕様選択あり {len(variant_items)}件</span>' if variant_items else ''}<span>親カテゴリ <a href="{esc(category_filename(str(parent.get('id') or '')))}">{esc(parent.get('name'))}</a></span><span>最終更新 {esc(updated)}</span></div></section><section class="guide-box"><h2>選ぶときのチェックポイント</h2>{guide_html}</section>{compare_table}{variant_alert}<section><div class="section-head"><h2>条件に一致した商品</h2><span>{len(items)}件</span></div>{sort_toolbar}<div class="grid" id="category-products">{cards}</div></section><p class="updated">最終データ更新: {esc(updated)}</p>'''
         (DOCS / comparison_url).write_text(
             layout(site, f"{spec.get('name')}比較", body, str(spec.get("summary") or ""), active_page="comparisons"),
             encoding="utf-8",
@@ -428,6 +467,7 @@ def main() -> None:
     method_body = '''<section class="hero compact"><h1>比較方法</h1><p>価格だけに偏らない比較スコアと、保存した価格履歴を組み合わせています。</p></section>
 <section class="prose"><h2>比較スコア</h2><p>レビュー平均、レビュー件数、同一検索カテゴリ内の相対価格、送料無料、ポイント倍率、価格履歴上の値下がりを組み合わせた参考値です。製品性能そのものを表す点数ではありません。</p>
 <h2>値下がりランキング</h2><p>最低5回の価格記録がある商品を対象に、保存した価格履歴の中央値と現在価格を比較し、値下がり率の大きい順に表示します。市場全体の最安値を保証するものではありません。</p>
+<h2>仕様選択がある商品</h2><p>条件別比較では、商品名に複数の容量や出力が含まれる商品は、表示価格が対象仕様の価格とは限らないため「仕様選択あり」と表示し、比較スコア上位・価格順・値下がり順の価格比較対象から外します。</p>
 <h2>特価候補</h2><p>最低5回の価格記録がある商品について、直近価格履歴の中央値から原則10%以上安い場合などを候補にします。市場全体の最安値を保証するものではありません。</p>
 <h2>比較コメント</h2><p>楽天APIから取得した事実と、このサイトの価格履歴を根拠に短い比較コメントを掲載します。APIにない仕様や実測性能は掲載しません。</p></section>'''
     (DOCS / "methodology.html").write_text(layout(site, "比較方法", method_body), encoding="utf-8")
