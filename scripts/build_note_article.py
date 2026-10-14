@@ -121,16 +121,14 @@ def png_chunk(kind: bytes, data: bytes) -> bytes:
 def draw_cover(path: Path, week_label: str) -> None:
     w, h = 1280, 670
     bg = (17, 24, 39)
-    pixels = bytearray(bg * (w * h))
+    pixels = bytearray(bytes(bg) * (w * h))
 
     def rect(x0, y0, x1, y1, color):
         x0 = max(0, x0); y0 = max(0, y0); x1 = min(w, x1); y1 = min(h, y1)
-        r,g,b = color
+        row = bytes(color) * max(0, x1 - x0)
         for y in range(y0, y1):
             start = (y*w + x0)*3
-            for x in range(x0, x1):
-                i = start + (x-x0)*3
-                pixels[i:i+3] = bytes((r,g,b))
+            pixels[start:start + len(row)] = row
 
     def text(x, y, value, scale, color):
         cx = x
