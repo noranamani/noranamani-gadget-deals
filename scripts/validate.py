@@ -32,6 +32,20 @@ def item_matches_comparison(item, spec):
     return True
 
 
+def comparison_price_is_uncertain(item, spec):
+    variant_type = str(spec.get("priceVariantType") or "")
+    if not variant_type:
+        return False
+    text = str(item.get("name") or "").lower()
+    if variant_type == "power":
+        values = {int(x) for x in re.findall(r"(?<!\\d)(\\d{1,3})\\s*w\\b", text, flags=re.IGNORECASE)}
+        return len(values) > 1
+    if variant_type == "capacity":
+        values = {(number, unit) for number, unit in re.findall(r"(?<![a-z0-9])(\\d+(?:\\.\\d+)?)\\s*(gb|tb)\\b", text, flags=re.IGNORECASE)}
+        return len(values) > 1
+    return False
+
+
 def main():
     products = load(DATA / "products.json")
     editorial = load(DATA / "editorial.json")
@@ -76,8 +90,13 @@ def main():
         if not parent:
             continue
         matches = [item for item in parent.get("items", []) if item_matches_comparison(item, spec)]
+        comparable_items = [item for item in matches if not comparison_price_is_uncertain(item, spec)]
         activate_date = rollout_start + timedelta(days=int(spec.get("activateAfterDays") or 0))
-        if today_jst >= activate_date and len(matches) >= int(spec.get("minProducts") or 5):
+        if (
+            today_jst >= activate_date
+            and len(matches) >= int(spec.get("minProducts") or 5)
+            and len(comparable_items) >= int(spec.get("minComparableProducts") or 0)
+        ):
             comparison_pages.append(DOCS / f"comparison-{spec['id']}.html")
 
     for path in [DOCS / "index.html", DOCS / "categories.html", DOCS / "comparisons.html", DOCS / "price-drops.html", DOCS / "deals.html", DOCS / "methodology.html", DOCS / "privacy.html", *category_pages, *comparison_pages]:
