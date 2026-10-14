@@ -1,0 +1,320 @@
+{
+  "rolloutStartDate": "2026-10-14",
+  "pages": [
+    {
+      "id": "usb-charger-65w",
+      "name": "65W USB-C充電器",
+      "parentCategory": "usb-charger",
+      "activateAfterDays": 0,
+      "minProducts": 5,
+      "summary": "ノートPCとスマートフォンを兼用しやすい65WクラスのUSB-C充電器を、価格・レビュー・送料・ポイント・価格履歴で比較します。",
+      "includeAnyGroups": [
+        [
+          "65w",
+          "65 w",
+          "pd65w"
+        ]
+      ],
+      "excludeAny": [
+        "ケーブルのみ",
+        "変換アダプタのみ"
+      ],
+      "guidePoints": [
+        "65W出力の対象ポートと同時充電時の出力配分を販売ページで確認する",
+        "PPS対応の有無やポート数を用途に合わせて比較する",
+        "価格だけでなくレビュー件数と送料も合わせて確認する"
+      ]
+    },
+    {
+      "id": "wireless-qi2",
+      "name": "Qi2ワイヤレス充電器",
+      "parentCategory": "wireless-charger",
+      "activateAfterDays": 0,
+      "minProducts": 5,
+      "summary": "Qi2対応をうたうワイヤレス充電器を中心に、価格・レビュー・送料・ポイント・価格履歴で比較します。",
+      "includeAnyGroups": [
+        [
+          "qi2",
+          "mqi2"
+        ]
+      ],
+      "excludeAny": [
+        "ケースのみ",
+        "保護ケース"
+      ],
+      "guidePoints": [
+        "販売ページでQi2対応機種と最大出力を確認する",
+        "充電器本体以外にACアダプターが必要か確認する",
+        "スタンド型・パッド型など設置方法も比較する"
+      ]
+    },
+    {
+      "id": "microsd-512gb",
+      "name": "512GB microSD",
+      "parentCategory": "microsd",
+      "activateAfterDays": 0,
+      "minProducts": 5,
+      "summary": "512GB表記を含むmicroSDカードを、価格・レビュー・送料・ポイント・価格履歴で比較します。",
+      "includeAnyGroups": [
+        [
+          "512gb",
+          "512 gb"
+        ]
+      ],
+      "excludeAny": [
+        "カードリーダーのみ",
+        "変換アダプタのみ"
+      ],
+      "guidePoints": [
+        "商品ページで512GBの選択時価格になっているか確認する",
+        "用途に必要な速度クラスや対応機器を販売ページで確認する",
+        "極端に安い商品はレビュー件数や販売元も確認する"
+      ]
+    },
+    {
+      "id": "car-holder-suction",
+      "name": "吸盤式MagSafe車載ホルダー",
+      "parentCategory": "car-phone-holder",
+      "activateAfterDays": 0,
+      "minProducts": 5,
+      "summary": "吸盤・真空吸着タイプで、磁気固定に対応する車載スマホホルダーを比較します。",
+      "includeAnyGroups": [
+        [
+          "吸盤",
+          "真空"
+        ],
+        [
+          "magsafe",
+          "mag safe",
+          "マグセーフ",
+          "マグネット",
+          "磁気"
+        ]
+      ],
+      "excludeAny": [],
+      "guidePoints": [
+        "ダッシュボードなど取り付け面との相性を確認する",
+        "ケース装着時の磁力や対応機種を販売ページで確認する",
+        "充電機能付きの場合は給電規格と付属品も確認する"
+      ]
+    },
+    {
+      "id": "wireless-carplay",
+      "name": "ワイヤレスCarPlayアダプター",
+      "parentCategory": "carplay-android-auto",
+      "activateAfterDays": 0,
+      "minProducts": 5,
+      "summary": "有線CarPlayの無線化を目的としたワイヤレスアダプターを、価格・レビュー・送料・ポイントで比較します。",
+      "includeAnyGroups": [
+        [
+          "carplay",
+          "カープレイ"
+        ],
+        [
+          "ワイヤレス",
+          "wireless",
+          "無線化"
+        ]
+      ],
+      "excludeAny": [
+        "ケーブルのみ"
+      ],
+      "guidePoints": [
+        "車両側が有線CarPlayに対応しているか事前に確認する",
+        "Android Auto対応の有無は商品ごとに確認する",
+        "対応年式やUSB端子形状、自動再接続の条件を販売ページで確認する"
+      ]
+    },
+    {
+      "id": "mobile-router-simfree",
+      "name": "SIMフリーモバイルルーター",
+      "parentCategory": "mobile-router",
+      "activateAfterDays": 0,
+      "minProducts": 5,
+      "summary": "SIMフリー表記のあるモバイルルーター本体を中心に、価格・レビュー・送料・ポイントで比較します。",
+      "includeAnyGroups": [
+        [
+          "simフリー",
+          "sim フリー",
+          "sim-free"
+        ],
+        [
+          "モバイルルーター",
+          "wifi",
+          "wi-fi",
+          "wi‐fi",
+          "ポケットwifi",
+          "ポケットwi-fi"
+        ]
+      ],
+      "excludeAny": [
+        "ケース",
+        "カバー",
+        "追加チャージ専用",
+        "ギガ追加",
+        "チャージ専用",
+        "simカードのみ"
+      ],
+      "guidePoints": [
+        "利用予定のSIMと対応バンドを販売ページで確認する",
+        "中古品はバッテリー状態や保証期間も確認する",
+        "端末代だけでなく回線契約やデータ容量の条件も確認する"
+      ]
+    },
+    {
+      "id": "microsd-256gb",
+      "name": "256GB microSD",
+      "parentCategory": "microsd",
+      "activateAfterDays": 14,
+      "minProducts": 5,
+      "summary": "256GB表記を含むmicroSDカードを、価格・レビュー・送料・ポイント・価格履歴で比較します。",
+      "includeAnyGroups": [
+        [
+          "256gb",
+          "256 gb"
+        ]
+      ],
+      "excludeAny": [
+        "カードリーダーのみ",
+        "変換アダプタのみ"
+      ],
+      "guidePoints": [
+        "256GB選択時の実売価格を販売ページで確認する",
+        "速度クラスと利用機器の対応を確認する",
+        "レビュー件数と販売元も合わせて比較する"
+      ]
+    },
+    {
+      "id": "wireless-charger-foldable",
+      "name": "折りたたみ式ワイヤレス充電器",
+      "parentCategory": "wireless-charger",
+      "activateAfterDays": 14,
+      "minProducts": 5,
+      "summary": "折りたたみ・3in1など携帯性を重視したワイヤレス充電器を比較します。",
+      "includeAnyGroups": [
+        [
+          "折りたたみ",
+          "折畳",
+          "折り畳み",
+          "3in1",
+          "2in1"
+        ],
+        [
+          "ワイヤレス充電器",
+          "qi2",
+          "magsafe",
+          "マグセーフ"
+        ]
+      ],
+      "excludeAny": [
+        "ac充電器"
+      ],
+      "guidePoints": [
+        "折りたたみ時のサイズと重量を確認する",
+        "スマートフォン以外の同時充電対応を確認する",
+        "必要なACアダプターやケーブルが付属するか確認する"
+      ]
+    },
+    {
+      "id": "dashcam-front-rear",
+      "name": "前後2カメラ ドライブレコーダー",
+      "parentCategory": "dashcam",
+      "activateAfterDays": 14,
+      "minProducts": 6,
+      "summary": "前後録画に対応するドライブレコーダーを、価格・レビュー・送料・ポイントで比較します。",
+      "includeAnyGroups": [
+        [
+          "前後",
+          "2カメラ",
+          "二カメラ",
+          "リアカメラ"
+        ]
+      ],
+      "excludeAny": [],
+      "guidePoints": [
+        "前後それぞれの解像度と画角を確認する",
+        "駐車監視を使う場合は必要な配線や電源を確認する",
+        "microSD付属の有無と対応容量も確認する"
+      ]
+    },
+    {
+      "id": "car-holder-wireless-charge",
+      "name": "ワイヤレス充電対応 車載ホルダー",
+      "parentCategory": "car-phone-holder",
+      "activateAfterDays": 30,
+      "minProducts": 4,
+      "summary": "ワイヤレス充電機能を備えた車載スマホホルダーを比較します。",
+      "includeAnyGroups": [
+        [
+          "ワイヤレス充電",
+          "充電対応"
+        ],
+        [
+          "車載",
+          "車",
+          "吸盤",
+          "真空"
+        ]
+      ],
+      "excludeAny": [],
+      "guidePoints": [
+        "スマートフォン側の対応充電規格を確認する",
+        "固定方式と車内の取り付け場所を確認する",
+        "電源アダプターやケーブルの必要条件を確認する"
+      ]
+    },
+    {
+      "id": "mobile-router-5g",
+      "name": "5Gモバイルルーター",
+      "parentCategory": "mobile-router",
+      "activateAfterDays": 30,
+      "minProducts": 4,
+      "summary": "5G表記のあるモバイルルーターを、価格・レビュー・送料・ポイントで比較します。",
+      "includeAnyGroups": [
+        [
+          "5g"
+        ],
+        [
+          "モバイルルーター",
+          "wifi",
+          "wi-fi",
+          "wi‐fi"
+        ]
+      ],
+      "excludeAny": [
+        "ケース",
+        "カバー",
+        "チャージ専用",
+        "simカードのみ"
+      ],
+      "guidePoints": [
+        "利用回線の5G・4G対応バンドを確認する",
+        "SIMロックやSIMフリー表記を確認する",
+        "中古品はバッテリー状態と保証も確認する"
+      ]
+    },
+    {
+      "id": "usb-charger-100w",
+      "name": "100W USB-C充電器",
+      "parentCategory": "usb-charger",
+      "activateAfterDays": 30,
+      "minProducts": 4,
+      "summary": "100Wクラスの高出力USB-C充電器を、価格・レビュー・送料・ポイントで比較します。",
+      "includeAnyGroups": [
+        [
+          "100w",
+          "100 w",
+          "pd100w"
+        ]
+      ],
+      "excludeAny": [
+        "ケーブルのみ"
+      ],
+      "guidePoints": [
+        "100W出力可能なポートと条件を確認する",
+        "100W対応ケーブルが必要か確認する",
+        "複数ポート同時利用時の出力配分を確認する"
+      ]
+    }
+  ]
+}
