@@ -23,7 +23,9 @@
         "65W出力の対象ポートと同時充電時の出力配分を販売ページで確認する",
         "PPS対応の有無やポート数を用途に合わせて比較する",
         "価格だけでなくレビュー件数と送料も合わせて確認する"
-      ]
+      ],
+      "priceVariantType": "power",
+      "minComparableProducts": 3
     },
     {
       "id": "wireless-qi2",
@@ -69,7 +71,9 @@
         "商品ページで512GBの選択時価格になっているか確認する",
         "用途に必要な速度クラスや対応機器を販売ページで確認する",
         "極端に安い商品はレビュー件数や販売元も確認する"
-      ]
+      ],
+      "priceVariantType": "capacity",
+      "minComparableProducts": 3
     },
     {
       "id": "car-holder-suction",
@@ -182,7 +186,9 @@
         "256GB選択時の実売価格を販売ページで確認する",
         "速度クラスと利用機器の対応を確認する",
         "レビュー件数と販売元も合わせて比較する"
-      ]
+      ],
+      "priceVariantType": "capacity",
+      "minComparableProducts": 3
     },
     {
       "id": "wireless-charger-foldable",
@@ -314,7 +320,9 @@
         "100W出力可能なポートと条件を確認する",
         "100W対応ケーブルが必要か確認する",
         "複数ポート同時利用時の出力配分を確認する"
-      ]
+      ],
+      "priceVariantType": "power",
+      "minComparableProducts": 3
     }
   ]
 }
