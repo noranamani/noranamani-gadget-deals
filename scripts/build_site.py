@@ -54,6 +54,22 @@ def category_filename(category_id: str) -> str:
     return f"category-{category_id}.html"
 
 
+def comparison_filename(comparison_id: str) -> str:
+    return f"comparison-{comparison_id}.html"
+
+
+def item_matches_comparison(item: dict, spec: dict) -> bool:
+    text = str(item.get("name") or "").lower()
+    for group in spec.get("includeAnyGroups", []):
+        terms = [str(term).lower() for term in group if str(term).strip()]
+        if terms and not any(term in text for term in terms):
+            return False
+    for term in spec.get("excludeAny", []):
+        if str(term).lower() in text:
+            return False
+    return True
+
+
 def unique_current_items(products: dict) -> list[dict]:
     by_code = {}
     for cat in products.get("categories", []):
@@ -122,12 +138,14 @@ def layout(site: dict, title: str, body: str, description: str = "", active_cate
         )
     category_nav = "".join(category_nav_parts)
     home_class = ' class="active"' if active_page == "home" else ""
+    comparisons_class = ' class="active"' if active_page == "comparisons" else ""
     drops_class = ' class="active"' if active_page == "price-drops" else ""
     deals_class = ' class="active"' if active_page == "deals" else ""
     sidebar = f'''<aside class="side-nav" aria-label="カテゴリナビゲーション">
       <div class="side-nav-title">カテゴリ</div>
       <a{home_class} href="index.html">ホーム</a>
       {category_nav}
+      <a{comparisons_class} href="comparisons.html">条件別比較</a>
       <a{drops_class} href="price-drops.html">値下がりランキング</a>
       <a{deals_class} href="deals.html">今日の特価候補</a>
     </aside>'''
@@ -139,7 +157,7 @@ def layout(site: dict, title: str, body: str, description: str = "", active_cate
 <meta name="google-site-verification" content="SOlcKHA0_jr9rUKvudZcu9H27wc2si9Kq6B4anfCE6U" />
 <link rel="stylesheet" href="assets/style.css">
 </head><body>
-<header><div class="wrap header-inner"><a class="brand" href="index.html">{site_name}</a><nav><a href="price-drops.html">値下がりランキング</a><a href="deals.html">今日の特価候補</a><a href="methodology.html">比較方法</a><a href="{esc(site.get('note_url'))}" target="_blank" rel="noopener">実体験note</a></nav></div></header>
+<header><div class="wrap header-inner"><a class="brand" href="index.html">{site_name}</a><nav><a href="comparisons.html">条件別比較</a><a href="price-drops.html">値下がりランキング</a><a href="deals.html">今日の特価候補</a><a href="methodology.html">比較方法</a><a href="{esc(site.get('note_url'))}" target="_blank" rel="noopener">実体験note</a></nav></div></header>
 <div class="site-shell">{sidebar}<main class="main-content">{body}</main></div>
 <footer><div class="wrap"><p>このサイトには楽天アフィリエイトのリンクが含まれます。価格・在庫等は取得時点の情報です。購入前に販売ページをご確認ください。</p><p><a href="privacy.html">運営・プライバシー</a> ・ Supported by Rakuten Developers</p></div></footer>
 <script>
@@ -170,6 +188,7 @@ def main() -> None:
     site = load(CONFIG / "site.json", {})
     products = load(DATA / "products.json", {"categories": [], "deals": [], "stats": {}})
     editorial = load(DATA / "editorial.json", {})
+    comparison_config = load(CONFIG / "comparisons.json", {"pages": []})
     DOCS.mkdir(parents=True, exist_ok=True)
     ASSETS.mkdir(parents=True, exist_ok=True)
 
@@ -195,6 +214,28 @@ def main() -> None:
     ]
     watching_items.sort(key=lambda x: (-int(x.get("historySamples") or 0), -int(x.get("reviewCount") or 0), int(x.get("price") or 0)))
 
+    category_by_id = {str(cat.get("id") or ""): cat for cat in products.get("categories", [])}
+    today_jst = datetime.now(timezone(timedelta(hours=9))).date()
+    rollout_text = str(comparison_config.get("rolloutStartDate") or today_jst.isoformat())
+    try:
+        rollout_start = datetime.fromisoformat(rollout_text).date()
+    except ValueError:
+        rollout_start = today_jst
+
+    comparison_pages = []
+    for spec in comparison_config.get("pages", []):
+        if not isinstance(spec, dict):
+            continue
+        parent = category_by_id.get(str(spec.get("parentCategory") or ""))
+        if not parent:
+            continue
+        matches = [item for item in parent.get("items", []) if item_matches_comparison(item, spec)]
+        matches.sort(key=lambda x: (-float(x.get("score") or 0), int(x.get("price") or 0), -int(x.get("reviewCount") or 0)))
+        activate_date = rollout_start + timedelta(days=int(spec.get("activateAfterDays") or 0))
+        min_products = int(spec.get("minProducts") or 5)
+        if today_jst >= activate_date and len(matches) >= min_products:
+            comparison_pages.append({"spec": spec, "items": matches, "parent": parent, "activateDate": activate_date})
+
     featured = []
     for code, reason in featured_reasons.items():
         if code in all_by_code:
@@ -207,6 +248,12 @@ def main() -> None:
         sections.append(f'''<section class="price-drop-home"><div class="section-head"><div><p class="eyebrow">価格履歴ベース</p><h2>今日の値下がりTOP</h2></div><a href="price-drops.html">値下がりランキングを見る</a></div><div class="grid">{top_drop_cards}</div></section>''')
     else:
         sections.append(f'''<section class="price-drop-home"><div class="section-head"><div><p class="eyebrow">価格履歴ベース</p><h2>値下がりランキング</h2></div><a href="price-drops.html">履歴の状況を見る</a></div><div class="history-progress"><strong>価格履歴を蓄積中です</strong><p>判定には最低{min_samples}回の価格記録を使用します。現在 {len(watching_items)} 商品が判定待ちです。</p></div></section>''')
+    if comparison_pages:
+        comparison_home_cards = []
+        for row in comparison_pages[:6]:
+            spec = row["spec"]
+            comparison_home_cards.append(f'''<article class="category-nav-card"><p class="eyebrow">条件別比較</p><h2><a href="{esc(comparison_filename(str(spec.get('id') or '')))}">{esc(spec.get('name'))}</a></h2><p>{esc(spec.get('summary'))}</p><div class="meta">掲載 {len(row["items"])}件</div><a class="cta" href="{esc(comparison_filename(str(spec.get('id') or '')))}">比較ページを見る</a></article>''')
+        sections.append(f'''<section><div class="section-head"><h2>条件別比較</h2><a href="comparisons.html">すべて見る</a></div><div class="category-nav-grid">{''.join(comparison_home_cards)}</div></section>''')
     if featured:
         sections.append('<section><div class="section-head"><h2>注目候補</h2><a href="deals.html">特価候補をすべて見る</a></div><div class="grid">' + ''.join(featured) + '</div></section>')
 
@@ -237,6 +284,51 @@ def main() -> None:
     updated = format_updated_at(products.get("updatedAt"))
     sections.append(f'<p class="updated">最終データ更新: {esc(updated)}</p>')
     (DOCS / "index.html").write_text(layout(site, "ホーム", ''.join(sections), active_page="home"), encoding="utf-8")
+
+    active_comparison_files = set()
+    comparison_index_cards = []
+    for row in comparison_pages:
+        spec = row["spec"]
+        items = row["items"]
+        parent = row["parent"]
+        comparison_id = str(spec.get("id") or "")
+        comparison_url = comparison_filename(comparison_id)
+        active_comparison_files.add(comparison_url)
+        comparison_index_cards.append(f'''<article class="category-nav-card"><p class="eyebrow">条件別比較</p><h2><a href="{esc(comparison_url)}">{esc(spec.get('name'))}</a></h2><p>{esc(spec.get('summary'))}</p><div class="meta">{esc(parent.get('name'))} ・ 掲載 {len(items)}件</div><a class="cta" href="{esc(comparison_url)}">この条件で比較する</a></article>''')
+
+        score_top = sorted(items, key=lambda x: -float(x.get("score") or 0))[:5]
+        table_rows = []
+        for index, item in enumerate(score_top, 1):
+            deal_text = "大幅値下げ" if item.get("dealLevel") == "strong" else ("特価候補" if item.get("isDeal") else "—")
+            table_rows.append(
+                f'''<tr><td class="rank-cell">{index}</td><td class="compare-product"><a href="{esc(item.get('url'))}" rel="sponsored nofollow" target="_blank">{esc(item.get('name'))}</a></td><td>{yen(item.get('price'))}</td><td>{float(item.get('score') or 0):.1f}</td><td>{int(item.get('reviewCount') or 0):,}件</td><td>{esc(deal_text)}</td></tr>'''
+            )
+        compare_table = f'''<section class="compare-box"><div class="section-head"><h2>比較スコア上位5件</h2><span>条件に一致した商品の中で比較</span></div><div class="compare-table-wrap"><table class="compare-table"><thead><tr><th>#</th><th>商品</th><th>価格</th><th>スコア</th><th>レビュー</th><th>価格状況</th></tr></thead><tbody>{''.join(table_rows)}</tbody></table></div></section>''' if table_rows else ""
+
+        guide_points = spec.get("guidePoints") or []
+        guide_html = '<ul class="watchouts">' + ''.join(f'<li>{esc(point)}</li>' for point in guide_points[:4]) + '</ul>' if guide_points else '<p>価格、レビュー、送料、ポイント、価格履歴を合わせて比較してください。</p>'
+        cards = ''.join(product_card(item, "", index) for index, item in enumerate(items))
+        sort_toolbar = '''<div class="sort-toolbar"><span>並べ替え</span><div class="sort-buttons"><button type="button" class="active" data-sort="default">おすすめ順</button><button type="button" data-sort="score">比較スコア順</button><button type="button" data-sort="price">価格が安い順</button><button type="button" data-sort="reviews">レビュー件数順</button><button type="button" data-sort="drop">値下がり順</button></div></div>'''
+        breadcrumb = f'''<nav class="breadcrumb" aria-label="パンくず"><a href="index.html">ホーム</a><span>›</span><a href="comparisons.html">条件別比較</a><span>›</span><span>{esc(spec.get('name'))}</span></nav>'''
+        body = f'''{breadcrumb}<section class="hero compact category-hero"><p class="eyebrow">条件別比較</p><h1>{esc(spec.get('name'))}を比較</h1><p>{esc(spec.get('summary'))}</p><div class="stats"><span>掲載商品 {len(items)}</span><span>親カテゴリ <a href="{esc(category_filename(str(parent.get('id') or '')))}">{esc(parent.get('name'))}</a></span><span>最終更新 {esc(updated)}</span></div></section><section class="guide-box"><h2>選ぶときのチェックポイント</h2>{guide_html}</section>{compare_table}<section><div class="section-head"><h2>条件に一致した商品</h2><span>{len(items)}件</span></div>{sort_toolbar}<div class="grid" id="category-products">{cards}</div></section><p class="updated">最終データ更新: {esc(updated)}</p>'''
+        (DOCS / comparison_url).write_text(
+            layout(site, f"{spec.get('name')}比較", body, str(spec.get("summary") or ""), active_page="comparisons"),
+            encoding="utf-8",
+        )
+
+    for stale_path in DOCS.glob("comparison-*.html"):
+        if stale_path.name not in active_comparison_files:
+            stale_path.unlink()
+
+    comparisons_body = f'''<section class="hero compact"><p class="eyebrow">条件を絞って比較</p><h1>条件別比較</h1><p>用途や容量、充電規格などで対象を絞り、毎日の商品データから自動的に比較ページを生成しています。</p><div class="stats"><span>公開中 {len(comparison_pages)}ページ</span><span>商品数が十分なテーマだけ公開</span></div></section>'''
+    if comparison_index_cards:
+        comparisons_body += '<div class="category-nav-grid">' + ''.join(comparison_index_cards) + '</div>'
+    else:
+        comparisons_body += '<div class="empty">比較ページの公開条件を満たす商品を確認中です。</div>'
+    (DOCS / "comparisons.html").write_text(
+        layout(site, "条件別比較", comparisons_body, "用途や容量、規格などで絞ったガジェット比較ページの一覧です。", active_page="comparisons"),
+        encoding="utf-8",
+    )
 
     category_links = []
     category_cards = []
@@ -351,8 +443,9 @@ def main() -> None:
     (DOCS / "robots.txt").write_text(robots, encoding="utf-8")
 
     if site_url:
-        pages = ["index.html", "categories.html", "price-drops.html", "deals.html", "methodology.html", "privacy.html"]
+        pages = ["index.html", "categories.html", "comparisons.html", "price-drops.html", "deals.html", "methodology.html", "privacy.html"]
         pages += [category_filename(str(cat.get("id") or "")) for cat in products.get("categories", [])]
+        pages += [comparison_filename(str(row["spec"].get("id") or "")) for row in comparison_pages]
         urls = "".join(f"<url><loc>{esc(site_url + '/' + p)}</loc></url>" for p in pages)
         sitemap = f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>'
         (DOCS / "sitemap.xml").write_text(sitemap, encoding="utf-8")
