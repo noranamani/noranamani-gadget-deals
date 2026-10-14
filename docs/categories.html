@@ -74,6 +74,8 @@ document.addEventListener("click", function(event) {
   const items = Array.from(grid.querySelectorAll(".product-card"));
   const value = (item, name) => Number(item.dataset[name] || 0);
   items.sort((a, b) => {
+    const variantDiff = value(a, "variant") - value(b, "variant");
+    if (variantDiff !== 0) return variantDiff;
     if (key === "price") return value(a, "price") - value(b, "price");
     if (key === "reviews") return value(b, "reviews") - value(a, "reviews");
     if (key === "drop") return value(b, "drop") - value(a, "drop");
