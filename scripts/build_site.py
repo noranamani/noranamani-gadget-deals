@@ -54,6 +54,19 @@ def category_filename(category_id: str) -> str:
     return f"category-{category_id}.html"
 
 
+def unique_current_items(products: dict) -> list[dict]:
+    by_code = {}
+    for cat in products.get("categories", []):
+        for item in cat.get("items", []):
+            code = str(item.get("code") or "")
+            if not code:
+                continue
+            current = by_code.get(code)
+            if current is None or float(item.get("dropPct") or -999) > float(current.get("dropPct") or -999):
+                by_code[code] = item
+    return list(by_code.values())
+
+
 def product_card(item: dict, editorial_reason: str = "", sort_order: int = 0) -> str:
     img = esc(item.get("image"))
     image_html = f'<img src="{img}" alt="" loading="lazy">' if img else '<div class="noimg">No image</div>'
@@ -94,7 +107,7 @@ def product_card(item: dict, editorial_reason: str = "", sort_order: int = 0) ->
     </article>'''
 
 
-def layout(site: dict, title: str, body: str, description: str = "", active_category_id: str = "") -> str:
+def layout(site: dict, title: str, body: str, description: str = "", active_category_id: str = "", active_page: str = "") -> str:
     site_name = esc(site.get("site_name", "noranamani GADGET DEALS"))
     desc = esc(description or site.get("tagline", "ガジェットの価格比較と特価候補"))
     category_queries = load(CONFIG / "queries.json", [])
@@ -108,11 +121,15 @@ def layout(site: dict, title: str, body: str, description: str = "", active_cate
             f'<a{active_class} href="{esc(category_filename(category_id))}">{esc(row.get("name"))}</a>'
         )
     category_nav = "".join(category_nav_parts)
+    home_class = ' class="active"' if active_page == "home" else ""
+    drops_class = ' class="active"' if active_page == "price-drops" else ""
+    deals_class = ' class="active"' if active_page == "deals" else ""
     sidebar = f'''<aside class="side-nav" aria-label="カテゴリナビゲーション">
       <div class="side-nav-title">カテゴリ</div>
-      <a href="index.html">ホーム</a>
+      <a{home_class} href="index.html">ホーム</a>
       {category_nav}
-      <a href="deals.html">今日の特価候補</a>
+      <a{drops_class} href="price-drops.html">値下がりランキング</a>
+      <a{deals_class} href="deals.html">今日の特価候補</a>
     </aside>'''
     return f'''<!doctype html>
 <html lang="ja"><head>
@@ -122,7 +139,7 @@ def layout(site: dict, title: str, body: str, description: str = "", active_cate
 <meta name="google-site-verification" content="SOlcKHA0_jr9rUKvudZcu9H27wc2si9Kq6B4anfCE6U" />
 <link rel="stylesheet" href="assets/style.css">
 </head><body>
-<header><div class="wrap header-inner"><a class="brand" href="index.html">{site_name}</a><nav><a href="deals.html">今日の特価候補</a><a href="methodology.html">比較方法</a><a href="{esc(site.get('note_url'))}" target="_blank" rel="noopener">実体験note</a></nav></div></header>
+<header><div class="wrap header-inner"><a class="brand" href="index.html">{site_name}</a><nav><a href="price-drops.html">値下がりランキング</a><a href="deals.html">今日の特価候補</a><a href="methodology.html">比較方法</a><a href="{esc(site.get('note_url'))}" target="_blank" rel="noopener">実体験note</a></nav></div></header>
 <div class="site-shell">{sidebar}<main class="main-content">{body}</main></div>
 <footer><div class="wrap"><p>このサイトには楽天アフィリエイトのリンクが含まれます。価格・在庫等は取得時点の情報です。購入前に販売ページをご確認ください。</p><p><a href="privacy.html">運営・プライバシー</a> ・ Supported by Rakuten Developers</p></div></footer>
 <script>
@@ -163,6 +180,21 @@ def main() -> None:
         for item in cat.get("items", []):
             all_by_code[item.get("code")] = item
 
+    min_samples = int(products.get("methodology", {}).get("dealMinSamples") or site.get("deal_min_samples", 5))
+    current_unique = unique_current_items(products)
+    price_drop_items = [
+        item for item in current_unique
+        if item.get("dropPct") is not None
+        and int(item.get("historySamples") or 0) >= min_samples
+        and float(item.get("dropPct") or 0) > 0
+    ]
+    price_drop_items.sort(key=lambda x: (-float(x.get("dropPct") or 0), -float(x.get("score") or 0), -int(x.get("reviewCount") or 0)))
+    watching_items = [
+        item for item in current_unique
+        if int(item.get("historySamples") or 0) < min_samples
+    ]
+    watching_items.sort(key=lambda x: (-int(x.get("historySamples") or 0), -int(x.get("reviewCount") or 0), int(x.get("price") or 0)))
+
     featured = []
     for code, reason in featured_reasons.items():
         if code in all_by_code:
@@ -170,6 +202,11 @@ def main() -> None:
 
     hero = f'''<section class="hero"><p class="eyebrow">毎日自動更新</p><h1>{esc(editorial.get('dailyHeadline') or site.get('tagline'))}</h1><p>{esc(editorial.get('dailySummary'))}</p><div class="stats"><span>取得商品 {int(products.get('stats',{}).get('products',0))}</span><span>追跡商品 {int(products.get('stats',{}).get('tracked',0))}</span><span>特価候補 {int(products.get('stats',{}).get('deals',0))}</span></div></section>'''
     sections = [hero]
+    if price_drop_items:
+        top_drop_cards = ''.join(product_card(item) for item in price_drop_items[:3])
+        sections.append(f'''<section class="price-drop-home"><div class="section-head"><div><p class="eyebrow">価格履歴ベース</p><h2>今日の値下がりTOP</h2></div><a href="price-drops.html">値下がりランキングを見る</a></div><div class="grid">{top_drop_cards}</div></section>''')
+    else:
+        sections.append(f'''<section class="price-drop-home"><div class="section-head"><div><p class="eyebrow">価格履歴ベース</p><h2>値下がりランキング</h2></div><a href="price-drops.html">履歴の状況を見る</a></div><div class="history-progress"><strong>価格履歴を蓄積中です</strong><p>判定には最低{min_samples}回の価格記録を使用します。現在 {len(watching_items)} 商品が判定待ちです。</p></div></section>''')
     if featured:
         sections.append('<section><div class="section-head"><h2>注目候補</h2><a href="deals.html">特価候補をすべて見る</a></div><div class="grid">' + ''.join(featured) + '</div></section>')
 
@@ -199,7 +236,7 @@ def main() -> None:
 
     updated = format_updated_at(products.get("updatedAt"))
     sections.append(f'<p class="updated">最終データ更新: {esc(updated)}</p>')
-    (DOCS / "index.html").write_text(layout(site, "ホーム", ''.join(sections)), encoding="utf-8")
+    (DOCS / "index.html").write_text(layout(site, "ホーム", ''.join(sections), active_page="home"), encoding="utf-8")
 
     category_links = []
     category_cards = []
@@ -258,16 +295,47 @@ def main() -> None:
             encoding="utf-8",
         )
 
+    ranking_rows = []
+    for rank, item in enumerate(price_drop_items[:40], 1):
+        drop_text = f'{float(item.get("dropPct") or 0):.1f}%安'
+        level_text = "大幅値下げ" if item.get("dealLevel") == "strong" else ("特価候補" if item.get("isDeal") else "値下がり")
+        ranking_rows.append(
+            f'''<tr><td class="rank-cell">{rank}</td><td class="compare-product"><a href="{esc(item.get('url'))}" rel="sponsored nofollow" target="_blank">{esc(item.get('name'))}</a><div class="meta">{esc(item.get('category'))}</div></td><td>{yen(item.get('price'))}</td><td>{yen(item.get('baselinePrice'))}</td><td class="drop-rate">{esc(drop_text)}</td><td>{int(item.get('historySamples') or 0)}回</td><td>{esc(level_text)}</td></tr>'''
+        )
+
+    if ranking_rows:
+        ranking_html = f'''<section class="compare-box"><div class="section-head"><h2>値下がり率ランキング</h2><span>履歴{min_samples}回以上・履歴中央値より安い商品</span></div><div class="compare-table-wrap"><table class="compare-table drop-table"><thead><tr><th>#</th><th>商品</th><th>現在価格</th><th>履歴中央値</th><th>値下がり</th><th>履歴</th><th>判定</th></tr></thead><tbody>{''.join(ranking_rows)}</tbody></table></div></section>'''
+    else:
+        ranking_html = f'''<div class="empty"><strong>まだランキング対象の商品はありません。</strong><p>最低{min_samples}回の価格記録がたまり、履歴中央値より安い商品が出ると自動的にここへ表示されます。</p></div>'''
+
+    watching_rows = []
+    for item in watching_items[:20]:
+        samples = int(item.get("historySamples") or 0)
+        remaining = max(min_samples - samples, 0)
+        watching_rows.append(
+            f'''<tr><td class="compare-product"><a href="{esc(item.get('url'))}" rel="sponsored nofollow" target="_blank">{esc(item.get('name'))}</a><div class="meta">{esc(item.get('category'))}</div></td><td>{yen(item.get('price'))}</td><td><span class="history-count">{samples}/{min_samples}</span></td><td>あと{remaining}回</td></tr>'''
+        )
+    watching_html = ""
+    if watching_rows:
+        watching_html = f'''<section class="compare-box"><div class="section-head"><h2>価格ウォッチ中</h2><span>{len(watching_items)}商品が判定待ち</span></div><p class="category-summary">価格履歴が{min_samples}回に達するまで特価判定を行いません。履歴がたまった商品から自動的にランキング対象になります。</p><div class="compare-table-wrap"><table class="compare-table watch-table"><thead><tr><th>商品</th><th>現在価格</th><th>履歴</th><th>判定まで</th></tr></thead><tbody>{''.join(watching_rows)}</tbody></table></div></section>'''
+
+    drops_body = f'''<nav class="breadcrumb" aria-label="パンくず"><a href="index.html">ホーム</a><span>›</span><span>値下がりランキング</span></nav><section class="hero compact category-hero"><p class="eyebrow">毎日自動更新</p><h1>値下がりランキング</h1><p>このサイトが保存した価格履歴の中央値と現在価格を比較し、値下がり率の大きい順に表示します。市場全体の最安値を示すものではありません。</p><div class="stats"><span>ランキング対象 {len(price_drop_items)}</span><span>価格ウォッチ中 {len(watching_items)}</span><span>判定開始 {min_samples}回から</span><span>最終更新 {esc(updated)}</span></div></section>{ranking_html}{watching_html}'''
+    (DOCS / "price-drops.html").write_text(
+        layout(site, "値下がりランキング", drops_body, "保存した価格履歴から値下がり率の大きい商品を毎日ランキング。特価候補と価格ウォッチ中の商品も確認できます。", active_page="price-drops"),
+        encoding="utf-8",
+    )
+
     deals = products.get("deals", [])
     deal_body = '<section class="hero compact"><p class="eyebrow">価格履歴ベース</p><h1>今日の特価候補</h1><p>このサイト自身が保存した価格履歴との比較です。市場全体の最安値を意味しません。</p></section>'
     if deals:
         deal_body += '<div class="grid">' + ''.join(product_card(x, featured_reasons.get(x.get("code"), "")) for x in deals) + '</div>'
     else:
         deal_body += '<div class="empty">価格履歴が十分にたまるまで、特価候補は表示しません。</div>'
-    (DOCS / "deals.html").write_text(layout(site, "今日の特価候補", deal_body), encoding="utf-8")
+    (DOCS / "deals.html").write_text(layout(site, "今日の特価候補", deal_body, active_page="deals"), encoding="utf-8")
 
     method_body = '''<section class="hero compact"><h1>比較方法</h1><p>価格だけに偏らない比較スコアと、保存した価格履歴を組み合わせています。</p></section>
 <section class="prose"><h2>比較スコア</h2><p>レビュー平均、レビュー件数、同一検索カテゴリ内の相対価格、送料無料、ポイント倍率、価格履歴上の値下がりを組み合わせた参考値です。製品性能そのものを表す点数ではありません。</p>
+<h2>値下がりランキング</h2><p>最低5回の価格記録がある商品を対象に、保存した価格履歴の中央値と現在価格を比較し、値下がり率の大きい順に表示します。市場全体の最安値を保証するものではありません。</p>
 <h2>特価候補</h2><p>最低5回の価格記録がある商品について、直近価格履歴の中央値から原則10%以上安い場合などを候補にします。市場全体の最安値を保証するものではありません。</p>
 <h2>比較コメント</h2><p>楽天APIから取得した事実と、このサイトの価格履歴を根拠に短い比較コメントを掲載します。APIにない仕様や実測性能は掲載しません。</p></section>'''
     (DOCS / "methodology.html").write_text(layout(site, "比較方法", method_body), encoding="utf-8")
@@ -275,7 +343,7 @@ def main() -> None:
     privacy_body = '''<section class="hero compact"><h1>運営・プライバシー</h1></section><section class="prose"><h2>運営</h2><p>noranamani が、ガジェット選びの比較材料を提供する目的で運営しています。</p><h2>広告について</h2><p>当サイトは楽天アフィリエイトを利用しています。リンク経由の購入により運営者が紹介料を受け取る場合があります。</p><h2>データについて</h2><p>価格、レビュー、送料等は更新時点の楽天市場APIデータです。正確な最新情報は販売ページをご確認ください。</p></section>'''
     (DOCS / "privacy.html").write_text(layout(site, "運営・プライバシー", privacy_body), encoding="utf-8")
 
-    (DOCS / "feed.json").write_text(json.dumps({"updatedAt": products.get("updatedAt"), "deals": deals[:20]}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (DOCS / "feed.json").write_text(json.dumps({"updatedAt": products.get("updatedAt"), "deals": deals[:20], "priceDrops": price_drop_items[:20]}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     site_url = str(site.get("site_url") or "").rstrip("/")
     robots = "User-agent: *\nAllow: /\n"
     if site_url:
@@ -283,7 +351,7 @@ def main() -> None:
     (DOCS / "robots.txt").write_text(robots, encoding="utf-8")
 
     if site_url:
-        pages = ["index.html", "categories.html", "deals.html", "methodology.html", "privacy.html"]
+        pages = ["index.html", "categories.html", "price-drops.html", "deals.html", "methodology.html", "privacy.html"]
         pages += [category_filename(str(cat.get("id") or "")) for cat in products.get("categories", [])]
         urls = "".join(f"<url><loc>{esc(site_url + '/' + p)}</loc></url>" for p in pages)
         sitemap = f'<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>'
