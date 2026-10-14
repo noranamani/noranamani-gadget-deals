@@ -77,10 +77,10 @@ def comparison_price_is_uncertain(item: dict, spec: dict) -> bool:
         return False
     text = str(item.get("name") or "").lower()
     if variant_type == "power":
-        values = {int(x) for x in re.findall(r"(?<!\\d)(\\d{1,3})\\s*w\\b", text, flags=re.IGNORECASE)}
+        values = {int(x) for x in re.findall(r"(?<!\d)(\d{1,3})\s*w\b", text, flags=re.IGNORECASE)}
         return len(values) > 1
     if variant_type == "capacity":
-        values = {(number, unit) for number, unit in re.findall(r"(?<![a-z0-9])(\\d+(?:\\.\\d+)?)\\s*(gb|tb)\\b", text, flags=re.IGNORECASE)}
+        values = {(number, unit) for number, unit in re.findall(r"(?<![a-z0-9])(\d+(?:\.\d+)?)\s*(gb|tb)\b", text, flags=re.IGNORECASE)}
         return len(values) > 1
     return False
 
