@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,6 +18,18 @@ def load(path):
 
 def fail(message):
     raise SystemExit("VALIDATION ERROR: " + message)
+
+
+def item_matches_comparison(item, spec):
+    text = str(item.get("name") or "").lower()
+    for group in spec.get("includeAnyGroups", []):
+        terms = [str(term).lower() for term in group if str(term).strip()]
+        if terms and not any(term in text for term in terms):
+            return False
+    for term in spec.get("excludeAny", []):
+        if str(term).lower() in text:
+            return False
+    return True
 
 
 def main():
@@ -48,7 +61,26 @@ def main():
 
     queries = load(CONFIG / "queries.json")
     category_pages = [DOCS / f"category-{row['id']}.html" for row in queries]
-    for path in [DOCS / "index.html", DOCS / "categories.html", DOCS / "price-drops.html", DOCS / "deals.html", DOCS / "methodology.html", DOCS / "privacy.html", *category_pages]:
+
+    comparison_config = load(CONFIG / "comparisons.json")
+    category_by_id = {str(cat.get("id") or ""): cat for cat in products.get("categories", [])}
+    today_jst = datetime.now(timezone(timedelta(hours=9))).date()
+    rollout_text = str(comparison_config.get("rolloutStartDate") or today_jst.isoformat())
+    try:
+        rollout_start = datetime.fromisoformat(rollout_text).date()
+    except ValueError:
+        rollout_start = today_jst
+    comparison_pages = []
+    for spec in comparison_config.get("pages", []):
+        parent = category_by_id.get(str(spec.get("parentCategory") or ""))
+        if not parent:
+            continue
+        matches = [item for item in parent.get("items", []) if item_matches_comparison(item, spec)]
+        activate_date = rollout_start + timedelta(days=int(spec.get("activateAfterDays") or 0))
+        if today_jst >= activate_date and len(matches) >= int(spec.get("minProducts") or 5):
+            comparison_pages.append(DOCS / f"comparison-{spec['id']}.html")
+
+    for path in [DOCS / "index.html", DOCS / "categories.html", DOCS / "comparisons.html", DOCS / "price-drops.html", DOCS / "deals.html", DOCS / "methodology.html", DOCS / "privacy.html", *category_pages, *comparison_pages]:
         if not path.exists() or path.stat().st_size < 300:
             fail(f"missing or too small: {path}")
         text = path.read_text(encoding="utf-8")
