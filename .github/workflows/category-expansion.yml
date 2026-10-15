@@ -1,0 +1,70 @@
+name: Gradually expand gadget categories
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/category_rollout.py'
+      - 'scripts/test_category_rollout.py'
+      - 'config/category-expansion.json'
+      - 'data/category-expansion-state.json'
+      - '.github/workflows/category-expansion.yml'
+  schedule:
+    # Sunday 05:45 JST = Saturday 20:45 UTC.
+    # Earliest addition 2026-10-25. Max 1 category per 14 days.
+    # This finishes BEFORE the Oracle 06:10 JST fixed-IP data fetch.
+    - cron: '45 20 * * 6'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: noranamani-gadget-category-rollout
+  cancel-in-progress: false
+
+jobs:
+  validate-and-rollout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout source, config and rollout journal
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run offline category rollout tests
+        run: python -m unittest discover -s scripts -p test_category_rollout.py -v
+      - name: Show dry-run decision (NO Rakuten API calls)
+        run: python scripts/category_rollout.py --check
+      - name: Add at most ONE vetted root category on scheduled Sundays
+        if: github.event_name == 'schedule'
+        env:
+          CATEGORY_ROLLOUT_SCHEDULED: '1'
+        run: python scripts/category_rollout.py --apply
+      - name: Validate category JSON and persist both category config and rollout journal
+        if: github.event_name == 'schedule'
+        run: |
+          set -eu
+          python -m json.tool config/queries.json >/dev/null
+          python -m json.tool data/category-expansion-state.json >/dev/null
+          python -m unittest discover -s scripts -p test_category_rollout.py -v
+          git diff --check
+          git add -- config/queries.json data/category-expansion-state.json
+          if git diff --cached --quiet; then
+            echo 'No new category this week (cooldown, insufficient products or limit).'
+          else
+            git config user.name 'gadget-category-bot'
+            git config user.email 'gadget-category-bot@users.noreply.github.com'
+            git commit -m 'feat: gradually add one vetted gadget product category'
+            git push origin HEAD:main
+          fi
+      - name: Operational note
+        if: always()
+        run: |
+          echo '### Gradual root category expansion' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Max one category per 14 days, earliest 2026-10-25, up to 16 total categories.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'No Rakuten API calls; Oracle fixed-IP fetch will pick up approved queries at 06:10 JST.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'A sparse/uncollected prior category pauses future additions instead of expanding blindly.' >> "$GITHUB_STEP_SUMMARY"
