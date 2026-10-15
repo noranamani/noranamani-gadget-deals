@@ -81,15 +81,22 @@ def validate(config: dict, state: dict, queries: list) -> None:
     if not isinstance(date_s, str) or not DATE.fullmatch(date_s):
         raise ValueError("ROLLOUT_DATE_INVALID")
     datetime.fromisoformat(date_s)
-    ids, names, words = set(), set(), set()
-    for row in [*queries, *candidates]:
-        check_row(row)
-        normalized = " ".join(row["keyword"].lower().split())
-        if row["id"] in ids or row["name"] in names or normalized in words:
-            raise ValueError("CATEGORY_DUPLICATE_ID_NAME_OR_QUERY")
-        ids.add(row["id"])
-        names.add(row["name"])
-        words.add(normalized)
+    # A previously activated candidate legitimately exists in both the
+    # current query list AND the vetted candidate pool.
+    for rows in (queries, candidates):
+        ids, names, words = set(), set(), set()
+        for row in rows:
+            check_row(row)
+            normalized = " ".join(row["keyword"].lower().split())
+            if row["id"] in ids or row["name"] in names or normalized in words:
+                raise ValueError("CATEGORY_DUPLICATE_ID_NAME_OR_QUERY")
+            ids.add(row["id"])
+            names.add(row["name"])
+            words.add(normalized)
+    existing = {row["id"]: row for row in queries}
+    for candidate in candidates:
+        if candidate["id"] in existing and candidate != existing[candidate["id"]]:
+            raise ValueError("ACTIVATED_CATEGORY_CHANGED_AFTER_ROLLOUT")
     last = ""
     for entry in state["history"]:
         if not isinstance(entry, dict) or not isinstance(entry.get("id"), str):
