@@ -111,8 +111,19 @@ CodexのAutomationで、このリポジトリのCloud Environmentを選び、`co
 - ポイント倍率: 最大5
 - 自サイト価格履歴上の値下げ: 最大20
 
-## カテゴリを変える
-`config/queries.json` を編集します。検索語と価格範囲を増減できます。
+## カテゴリの段階的な自動追加
+
+現在の基本8カテゴリから、厳選した新テーマを**最短14日ごとに1カテゴリ**ずつ追加します。開始は**2026年10月25日（日）**、当面は**合計16カテゴリまで**です。
+候補はモバイルバッテリー、USB-Cケーブル、USB-Cハブ、ポータブルSSD、Bluetoothイヤホン、ノートPCスタンド、スマートプラグ、Bluetoothスピーカーです。
+
+- GitHub Actions の [Gradually expand gadget categories](https://github.com/noranamani/noranamani-gadget-deals/actions/workflows/category-expansion.yml) が毎週日曜05:15（JST）に確認します。
+- 新カテゴリが1件追加されると `config/queries.json` と `data/category-expansion-state.json` を同時に更新します。**楽天APIへのアクセスは行いません**。
+- Oracle VM が従来どおり06:10頃に新カテゴリを含めて取得し、商品データを更新します。
+- 商品データの鮮度が悪い、前に追加したカテゴリに固有商品が6件未満、14日経過していないなどの場合は追加しません。
+- 比較可能な商品が少なければ増加を保留し、必要なときに検索語を見直します。無制限にカテゴリやページを量産しません。
+- 条件別比較ページは別の `config/comparisons.json` ですでに段階公開されます。
+
+自動追加を停止したい場合は `config/category-expansion.json` の `enabled` を `false` に変更します。手動でカテゴリを変更する場合もID・検索語・価格範囲の重複に注意してください。
 
 ## 重要な運用方針
 - AIに商品スペックを想像させない
