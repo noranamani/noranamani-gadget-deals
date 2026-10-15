@@ -5,7 +5,8 @@ import argparse
 import hashlib
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 SITES = ("gadget", "local", "gacha")
@@ -37,7 +38,8 @@ def plan(inputs: dict[str, Path], state_path: Path) -> dict:
                 raise ValueError("invalid article path or source URL")
             if not str(m.get("title","")).strip():
                 raise ValueError("missing title")
-            if not datetime.fromisoformat(m.get("generated_at","")).tzinfo:
+            generated = datetime.fromisoformat(str(m.get("generated_at","")).replace("Z","+00:00"))
+            if generated.tzinfo is None or generated.utcoffset() is None:
                 raise ValueError("missing timezone")
             text = (folder / "article.md").read_text(encoding="utf-8")
             if not text.strip():
@@ -45,10 +47,19 @@ def plan(inputs: dict[str, Path], state_path: Path) -> dict:
             digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
             record_key = site + "/" + key
             record = existing.get(record_key)
-            if record:
+            if record and str(record.get("status", "")).startswith("historical_"):
+                action = "historical_publication_hold"
+            elif record:
                 action = "already_recorded" if record.get("sha256") == digest else "revision_requires_review"
             else:
-                action = "draft_candidate"
+                # A bundle is never a draft candidate outside its own JST ISO week.
+                now = datetime.now(ZoneInfo("Asia/Tokyo"))
+                current = now.isocalendar()
+                expected_key = f"{current.year}-W{current.week:02d}"
+                age = now - generated.astimezone(ZoneInfo("Asia/Tokyo"))
+                action = ("draft_candidate" if key == expected_key and
+                          timedelta(minutes=-5) <= age <= timedelta(days=10)
+                          else "stale_skip")
             output.append({"site_id":site, "issue_key":key, "action":action, "sha256":digest, "title":m["title"]})
         except (OSError, ValueError, KeyError, json.JSONDecodeError, TypeError) as exc:
             output.append({"site_id":site, "action":"invalid", "reason":str(exc)})
