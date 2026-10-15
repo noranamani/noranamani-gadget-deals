@@ -32,6 +32,8 @@ jobs:
         run: |
           python local/scripts/build_note_weekly.py
           node gacha/scripts/build-note-weekly.cjs
+          python gadget/scripts/build_note_manifest.py
+          python gadget/scripts/check_note_bundle.py gadget/note/latest
       - name: Compute note queue (read-only)
         run: |
           python gadget/scripts/plan_note_queue.py --gadget gadget/note/latest --local local/note/latest --gacha gacha/note/latest --state gadget/note/queue-state.json --output note-queue-report.json
