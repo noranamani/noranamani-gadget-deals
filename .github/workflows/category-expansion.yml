@@ -9,10 +9,10 @@ on:
       - 'data/category-expansion-state.json'
       - '.github/workflows/category-expansion.yml'
   schedule:
-    # Sunday 05:45 JST = Saturday 20:45 UTC.
+    # Sunday 05:15 JST = Saturday 20:15 UTC.
     # Earliest addition 2026-10-25. Max 1 category per 14 days.
     # This finishes BEFORE the Oracle 06:10 JST fixed-IP data fetch.
-    - cron: '45 20 * * 6'
+    - cron: '15 20 * * 6'
 
 permissions:
   contents: write
