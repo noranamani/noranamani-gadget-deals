@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "enabled": true,
+  "first_addition_jst": "2026-10-25",
+  "minimum_days_between_additions": 14,
+  "max_total_categories": 16,
+  "max_additions_per_run": 1,
+  "minimum_previous_new_category_products": 6,
+  "maximum_data_age_hours": 36,
+  "candidates": [
+    {
+      "id": "power-bank",
+      "name": "モバイルバッテリー",
+      "keyword": "モバイルバッテリー USB-C PD 10000mAh",
+      "minPrice": 1000,
+      "maxPrice": 15000
+    },
+    {
+      "id": "usb-c-cable",
+      "name": "USB-Cケーブル",
+      "keyword": "USB-C ケーブル PD 100W 1m 2m",
+      "minPrice": 400,
+      "maxPrice": 5000
+    },
+    {
+      "id": "usb-c-hub",
+      "name": "USB-Cハブ",
+      "keyword": "USB-C ハブ HDMI USB 変換",
+      "minPrice": 1000,
+      "maxPrice": 20000
+    },
+    {
+      "id": "portable-ssd",
+      "name": "ポータブルSSD",
+      "keyword": "ポータブル SSD USB 1TB",
+      "minPrice": 2500,
+      "maxPrice": 30000
+    },
+    {
+      "id": "bluetooth-earbuds",
+      "name": "Bluetoothイヤホン",
+      "keyword": "ワイヤレスイヤホン Bluetooth ノイズキャンセリング",
+      "minPrice": 1000,
+      "maxPrice": 20000
+    },
+    {
+      "id": "laptop-stand",
+      "name": "ノートPCスタンド",
+      "keyword": "ノートパソコン スタンド 折りたたみ",
+      "minPrice": 500,
+      "maxPrice": 9000
+    },
+    {
+      "id": "smart-plug",
+      "name": "スマートプラグ",
+      "keyword": "スマートプラグ Wi-Fi タイマー",
+      "minPrice": 600,
+      "maxPrice": 9000
+    },
+    {
+      "id": "bluetooth-speaker",
+      "name": "Bluetoothスピーカー",
+      "keyword": "Bluetooth スピーカー ポータブル 防水",
+      "minPrice": 1000,
+      "maxPrice": 15000
+    }
+  ]
+}
