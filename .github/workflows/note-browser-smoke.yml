@@ -1,0 +1,37 @@
+name: Note browser smoke (no login)
+on:
+  workflow_dispatch:
+    inputs:
+      check_note:
+        description: "Check public note.com/new page without logging in"
+        required: false
+        type: boolean
+        default: true
+permissions:
+  contents: read
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install isolated browser dependencies
+        run: |
+          python -m pip install 'playwright==1.56.0'
+          python -m playwright install --with-deps chromium
+      - name: Chromium startup and unauthenticated note reachability
+        env:
+          CHECK_NOTE: ${{ inputs.check_note }}
+        run: |
+          if [ "$CHECK_NOTE" = "true" ]; then
+            python scripts/check_note_browser.py --check-note
+          else
+            python scripts/check_note_browser.py
+          fi
+      - name: Report the safety boundary
+        if: always()
+        run: |
+          echo 'This workflow never logs in, uses note cookies, creates drafts, or publishes articles.' >> "$GITHUB_STEP_SUMMARY"
