@@ -1,0 +1,31 @@
+name: Validate note handoff
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "scripts/check_note_bundle.py"
+      - "scripts/test_check_note_bundle.py"
+      - "note/COMMON_CONTRACT.md"
+      - ".github/workflows/note-handoff-check.yml"
+  pull_request:
+    paths:
+      - "scripts/check_note_bundle.py"
+      - "scripts/test_check_note_bundle.py"
+      - "note/COMMON_CONTRACT.md"
+      - ".github/workflows/note-handoff-check.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Offline note contract tests
+        run: python -m unittest discover -s scripts -p 'test_check_note_bundle.py' -v
+      - name: Validate existing gadget bundle in legacy mode
+        run: python scripts/check_note_bundle.py note/latest --allow-legacy
