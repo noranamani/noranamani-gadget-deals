@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "posts": {
+    "gadget/2026-W42": {
+      "status": "historical_publication_requires_confirmation",
+      "note_url": "https://note.com/noranamani/n/n13f3880642b0",
+      "source": "weekly-publish/README.md in user-provided legacy ZIP; verify in note before any modification"
+    }
+  }
+}
