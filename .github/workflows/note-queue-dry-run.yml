@@ -1,0 +1,42 @@
+name: Three-site note queue dry-run
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'scripts/plan_note_queue.py'
+      - '.github/workflows/note-queue-dry-run.yml'
+permissions:
+  contents: read
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: gadget
+      - uses: actions/checkout@v4
+        with:
+          repository: noranamani/noranamani-local-guide
+          path: local
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: noranamani/harima-gacha-navi
+          path: gacha
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Generate safe bundles without posting
+        run: |
+          python local/scripts/build_note_weekly.py
+          node gacha/scripts/build-note-weekly.cjs
+      - name: Compute note queue (read-only)
+        run: |
+          python gadget/scripts/plan_note_queue.py --gadget gadget/note/latest --local local/note/latest --gacha gacha/note/latest --state gadget/note/queue-state.json --output note-queue-report.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: note-queue-dry-run
+          path: note-queue-report.json
+          retention-days: 14
