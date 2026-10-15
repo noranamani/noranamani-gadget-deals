@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import copy
 import os
 import sys
 import tempfile
@@ -32,7 +33,7 @@ def seed(now=SUNDAY):
         "schema_version": 1, "enabled": True, "first_addition_jst": "2026-10-25",
         "minimum_days_between_additions": 14, "max_total_categories": 5,
         "max_additions_per_run": 1, "minimum_previous_new_category_products": 6,
-        "maximum_data_age_hours": 36, "candidates": CANDIDATES,
+        "maximum_data_age_hours": 36, "candidates": copy.deepcopy(CANDIDATES),
     }
     state = {"schema_version": 1, "history": []}
     queries = [BASE]
@@ -59,7 +60,7 @@ class CategorySafetyTests(unittest.TestCase):
 
     def test_cooldown_and_quality_gate_before_second_category(self):
         cfg, state, qs, products = seed()
-        cfg["candidates"] = CANDIDATES
+        cfg["candidates"] = copy.deepcopy(CANDIDATES)
         qs = [BASE, CANDIDATES[0]]
         state["history"] = [{"id": "power-bank", "date_jst": "2026-10-25",
                              "query_sha256": "x"}]
