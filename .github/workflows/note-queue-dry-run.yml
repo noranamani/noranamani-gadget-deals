@@ -35,6 +35,15 @@ jobs:
       - name: Compute note queue (read-only)
         run: |
           python gadget/scripts/plan_note_queue.py --gadget gadget/note/latest --local local/note/latest --gacha gacha/note/latest --state gadget/note/queue-state.json --output note-queue-report.json
+      - name: Summarize queue classifications
+        if: always()
+        run: |
+          echo '### Three-site note queue (no note login or posting)' >> "$GITHUB_STEP_SUMMARY"
+          if [ -f note-queue-report.json ]; then
+            python3 -c "import json; r=json.load(open('note-queue-report.json')); print('\n'.join('- '+x['site_id']+': '+x['action'] for x in r['entries']))" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'Report not created (previous step failed).' >> "$GITHUB_STEP_SUMMARY"
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: note-queue-dry-run
