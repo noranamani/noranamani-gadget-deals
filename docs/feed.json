@@ -1,5 +1,55 @@
 {
-  "updatedAt": "2026-10-16T21:10:09.224907Z",
-  "deals": [],
-  "priceDrops": []
+  "updatedAt": "2026-10-18T21:10:10.125106Z",
+  "deals": [
+    {
+      "categoryId": "car-charger",
+      "category": "車載充電器",
+      "name": "【FUNKS公式】【一年保証】【タイプC 2本】シガーソケット 充電器 巻き取り 2口 スリム リール式 4in1 車 USB Type-C 急速充電 4ポート カーチャージャー 4台同時に充電 iPhone 15 巻き取り式 12V車 Apple Android USBポート付 リールタイプ 後部座席 車載充電器 電圧計",
+      "code": "auc-funksstore:10011780",
+      "price": 2180,
+      "image": "https://thumbnail.image.rakuten.co.jp/@0_mall/auc-funksstore/cabinet/ch04/ciga-adp-win-v2_00-.jpg?_ex=128x128",
+      "url": "https://hb.afl.rakuten.co.jp/hgc/g00rhq6o.jhosb737.g00rhq6o.jhoscbdb/?pc=https%3A%2F%2Fitem.rakuten.co.jp%2Fauc-funksstore%2Fcigar-adpt-wind%2F&m=http%3A%2F%2Fm.rakuten.co.jp%2Fauc-funksstore%2Fi%2F10011780%2F&rafcid=wsc_i_is_fa6b1604-eee5-4513-a32f-4192d777556d",
+      "reviewAverage": 4.66,
+      "reviewCount": 148,
+      "postageIncluded": true,
+      "pointRate": 2,
+      "shopName": "ファンクスストア",
+      "saleStart": "",
+      "saleEnd": "",
+      "historySamples": 6,
+      "baselinePrice": 2780,
+      "previousMin": 2180,
+      "dropPct": 21.6,
+      "isNewLow": false,
+      "isDeal": true,
+      "dealLevel": "strong",
+      "score": 68.0
+    }
+  ],
+  "priceDrops": [
+    {
+      "categoryId": "car-charger",
+      "category": "車載充電器",
+      "name": "【FUNKS公式】【一年保証】【タイプC 2本】シガーソケット 充電器 巻き取り 2口 スリム リール式 4in1 車 USB Type-C 急速充電 4ポート カーチャージャー 4台同時に充電 iPhone 15 巻き取り式 12V車 Apple Android USBポート付 リールタイプ 後部座席 車載充電器 電圧計",
+      "code": "auc-funksstore:10011780",
+      "price": 2180,
+      "image": "https://thumbnail.image.rakuten.co.jp/@0_mall/auc-funksstore/cabinet/ch04/ciga-adp-win-v2_00-.jpg?_ex=128x128",
+      "url": "https://hb.afl.rakuten.co.jp/hgc/g00rhq6o.jhosb737.g00rhq6o.jhoscbdb/?pc=https%3A%2F%2Fitem.rakuten.co.jp%2Fauc-funksstore%2Fcigar-adpt-wind%2F&m=http%3A%2F%2Fm.rakuten.co.jp%2Fauc-funksstore%2Fi%2F10011780%2F&rafcid=wsc_i_is_fa6b1604-eee5-4513-a32f-4192d777556d",
+      "reviewAverage": 4.66,
+      "reviewCount": 148,
+      "postageIncluded": true,
+      "pointRate": 2,
+      "shopName": "ファンクスストア",
+      "saleStart": "",
+      "saleEnd": "",
+      "historySamples": 6,
+      "baselinePrice": 2780,
+      "previousMin": 2180,
+      "dropPct": 21.6,
+      "isNewLow": false,
+      "isDeal": true,
+      "dealLevel": "strong",
+      "score": 68.0
+    }
+  ]
 }
