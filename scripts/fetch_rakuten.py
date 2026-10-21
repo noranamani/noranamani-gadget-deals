@@ -2,15 +2,11 @@
 from __future__ import annotations
 
 import json
+import copy
 import math
-import os
 import statistics
-import time
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.error import HTTPError
-from urllib.parse import urlencode
-from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_DIR = ROOT / "config"
@@ -20,57 +16,6 @@ SITE = CONFIG_DIR / "site.json"
 PRODUCTS = DATA_DIR / "products.json"
 HISTORY = DATA_DIR / "history.json"
 ENDPOINT = "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701"
-
-
-def load_json(path: Path, default):
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError):
-        return default
-
-
-def save_json(path: Path, obj) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(obj, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-
-
-REQUEST_INTERVAL_SECONDS = 1.2
-MAX_API_RETRIES = 5
-_last_request_started = 0.0
-
-
-def _throttle_request() -> None:
-    global _last_request_started
-    elapsed = time.monotonic() - _last_request_started
-    wait = REQUEST_INTERVAL_SECONDS - elapsed
-    if wait > 0:
-        time.sleep(wait)
-    _last_request_started = time.monotonic()
-
-
-def api_get(params: dict, access_key: str) -> dict:
-    url = ENDPOINT + "?" + urlencode(params)
-    req = Request(url, headers={"accessKey": access_key, "User-Agent": "noranamani-gadget-deals/2.0"})
-
-    for attempt in range(MAX_API_RETRIES):
-        _throttle_request()
-        try:
-            with urlopen(req, timeout=45) as response:
-                return json.loads(response.read().decode("utf-8"))
-        except HTTPError as exc:
-            if exc.code != 429 or attempt == MAX_API_RETRIES - 1:
-                raise
-
-            retry_after = exc.headers.get("Retry-After")
-            try:
-                delay = max(float(retry_after), 2.0) if retry_after else min(2 ** (attempt + 1), 30)
-            except ValueError:
-                delay = min(2 ** (attempt + 1), 30)
-
-            print(f"Rakuten API returned HTTP 429; retrying in {delay:.1f}s...", flush=True)
-            time.sleep(delay)
-
-    raise RuntimeError("Rakuten API request failed after retries")
 
 
 def unwrap_items(data: dict) -> list[dict]:
@@ -140,13 +85,16 @@ def price_metrics(item_code: str, current_price: int, history: dict, min_samples
 
 
 def append_history(item_code: str, price: int, history: dict, day: str, max_days: int) -> None:
+    from pipeline_common import PipelineError
     rows = history.setdefault(item_code, [])
-    if rows and rows[-1].get("date") == day:
-        rows[-1]["price"] = price
-    else:
-        rows.append({"date": day, "price": price})
-    if len(rows) > max_days:
-        del rows[:-max_days]
+    if rows and rows[-1]["date"] == day:
+        if rows[-1]["price"] != price:
+            raise PipelineError("SAME_DAY_PRICE_CONFLICT")
+        return
+    if rows and rows[-1]["date"] > day:
+        raise PipelineError("HISTORY_DATE_REGRESSION")
+    rows.append({"date": day, "price": price})
+    # Never truncate historical records; archival requires an explicit retention policy.
 
 
 def deal_flags(metrics: dict, review_count: int, cfg: dict) -> tuple[bool, str]:
@@ -163,19 +111,14 @@ def deal_flags(metrics: dict, review_count: int, cfg: dict) -> tuple[bool, str]:
     return False, "none"
 
 
-def main() -> None:
-    app_id = os.environ.get("RAKUTEN_APP_ID", "").strip()
-    access_key = os.environ.get("RAKUTEN_ACCESS_KEY", "").strip()
-    affiliate_id = os.environ.get("RAKUTEN_AFFILIATE_ID", "").strip()
-    if not all((app_id, access_key, affiliate_id)):
-        raise SystemExit("Codex Cloud environment に RAKUTEN_APP_ID / RAKUTEN_ACCESS_KEY / RAKUTEN_AFFILIATE_ID を設定してください。")
-
-    cfg = load_json(SITE, {})
-    queries = load_json(QUERIES, [])
-    history = load_json(HISTORY, {})
-    now = datetime.now(timezone.utc)
+def build_products(cfg: dict, queries: list, history: dict, requester, now=None):
+    """Pure generation: caller owns validation, transport, transaction and publication."""
+    history = copy.deepcopy(history)
+    now = now or datetime.now(timezone.utc)
     day = now.strftime("%Y-%m-%d")
     updated_at = now.isoformat().replace("+00:00", "Z")
+    metric_history = {code: [row for row in rows if row["date"] != day]
+                      for code, rows in history.items()}
     max_days = int(cfg.get("history_days", 120))
     min_samples = int(cfg.get("deal_min_samples", 5))
 
@@ -186,8 +129,6 @@ def main() -> None:
         merged: dict[str, dict] = {}
         for sort in ("-reviewCount", "+itemPrice"):
             params = {
-                "applicationId": app_id,
-                "affiliateId": affiliate_id,
                 "format": "json",
                 "formatVersion": 2,
                 "keyword": q["keyword"],
@@ -205,7 +146,7 @@ def main() -> None:
                     "reviewCount", "reviewAverage", "pointRate", "startTime", "endTime", "shopName"
                 ]),
             }
-            data = api_get(params, access_key)
+            data = requester(params)
             for item in unwrap_items(data):
                 code = str(item.get("itemCode") or "")
                 if code:
@@ -221,7 +162,7 @@ def main() -> None:
             if not code or price <= 0:
                 continue
             review_count = int(item.get("reviewCount") or 0)
-            metrics = price_metrics(code, price, history, min_samples)
+            metrics = price_metrics(code, price, metric_history, min_samples)
             is_deal, deal_level = deal_flags(metrics, review_count, cfg)
             obj = {
                 "categoryId": q["id"],
@@ -230,7 +171,7 @@ def main() -> None:
                 "code": code,
                 "price": price,
                 "image": first_image(item),
-                "url": str(item.get("affiliateUrl") or item.get("itemUrl") or ""),
+                "url": str(item.get("affiliateUrl") or ""),
                 "reviewAverage": float(item.get("reviewAverage") or 0),
                 "reviewCount": review_count,
                 "postageIncluded": int(item.get("postageFlag", 1)) == 0,
@@ -276,10 +217,9 @@ def main() -> None:
             "historyDays": max_days,
         },
     }
-    save_json(PRODUCTS, out)
-    save_json(HISTORY, history)
-    print(f"updated products={len(all_items)} deals={len(deals)} tracked={tracked}")
+    return out, history
 
 
 if __name__ == "__main__":
-    main()
+    from collection_pipeline import main
+    raise SystemExit(main())

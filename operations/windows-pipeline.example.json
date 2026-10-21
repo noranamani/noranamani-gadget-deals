@@ -1,0 +1,7 @@
+{
+  "enabled": false,
+  "runtime_dir": "%LOCALAPPDATA%\\GadgetPipeline\\runtime",
+  "proxy_url": "http://proxy.example.invalid:3128",
+  "ca_bundle": null,
+  "affiliate_proof": "%LOCALAPPDATA%\\GadgetPipeline\\affiliate-proof.json"
+}
