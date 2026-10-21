@@ -9,7 +9,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
 from urllib.request import Request, ProxyHandler, HTTPSHandler, HTTPRedirectHandler, build_opener, proxy_bypass
 
-from pipeline_common import PipelineError, parse_json, assert_no_secrets
+from pipeline_common import PipelineError, parse_json
+from output_policy import OutputPolicy, affiliate_url
 from windows_credentials import Credentials
 
 ENDPOINT = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701'
@@ -52,16 +53,6 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
-def affiliate_url(url: str) -> bool:
-    try:
-        parts = urlsplit(url)
-        return (parts.scheme == 'https' and parts.hostname == 'hb.afl.rakuten.co.jp'
-                and parts.path.startswith('/hgc/') and not parts.username and not parts.password
-                and parts.port in (None, 443))
-    except ValueError:
-        return False
-
-
 class RakutenClient:
     def __init__(self, credentials: Credentials, proxy_url: str, request_budget: int,
                  ca_bundle: Path | None = None, interval=1.3, opener=None, clock=time.monotonic, sleep=time.sleep):
@@ -69,6 +60,7 @@ class RakutenClient:
         if interval < 1.0 or request_budget < 1:
             raise PipelineError('REQUEST_POLICY_INVALID')
         self.credentials, self.budget, self.interval = credentials, request_budget, interval
+        self.output_policy = OutputPolicy(credentials)
         self.clock, self.sleep, self.last = clock, sleep, None
         self.events = []
         self.context = ssl.create_default_context()
@@ -81,7 +73,8 @@ class RakutenClient:
         if len(self.events) >= self.budget:
             raise PipelineError('REQUEST_BUDGET_EXCEEDED')
         if self.last is not None:
-            while (remaining := self.interval - (self.clock() - self.last)) > 0:
+            deadline = self.last + self.interval
+            while (remaining := deadline - self.clock()) > 0:
                 self.sleep(remaining)
         query = {**params, 'applicationId': self.credentials.application_id,
                  'affiliateId': self.credentials.affiliate_id}
@@ -111,16 +104,20 @@ class RakutenClient:
         if not isinstance(rows, list) or not rows:
             raise PipelineError('CATEGORY_EMPTY_RESPONSE')
         clean = []
+        normalized = []
         allowed = set(params['elements'].split(','))
         for row in rows:
             if not isinstance(row, dict):
                 raise PipelineError('PRODUCT_ROW_INVALID')
             row = row.get('Item', row)
+            if not isinstance(row, dict):
+                raise PipelineError('PRODUCT_ROW_INVALID')
             if not affiliate_url(str(row.get('affiliateUrl') or '')):
                 raise PipelineError('AFFILIATE_LINK_INVALID')
             # Preserve the API-returned URL byte-for-byte. Never infer an item URL from its code.
             clean.append({name: value for name, value in row.items() if name in allowed})
+            normalized.append(row)
+        self.output_policy.check_api_items(normalized)
         result = {'items': clean}
-        assert_no_secrets(result, self.credentials.values())
         event['items'] = len(clean)
         return result

@@ -13,6 +13,7 @@ from pipeline_common import (PipelineError, SnapshotStore, assert_no_secrets, di
                              json_bytes, load_json, sha256, source_hashes, validate_history)
 from rakuten_client import RakutenClient, affiliate_url
 from windows_credentials import read_windows_credentials, affiliate_proof
+from output_policy import OutputPolicy
 
 
 def validate_queries(queries):
@@ -33,7 +34,8 @@ def validate_queries(queries):
 
 
 def collect_generation(root: Path, state: Path, requester, verification: dict,
-                       now: datetime, source_commit: str, secrets=(), checkpoint=lambda phase: None) -> dict:
+                       now: datetime, source_commit: str, secrets=(), checkpoint=lambda phase: None,
+                       output_policy: OutputPolicy | None = None) -> dict:
     root, state = root.resolve(), state.resolve()
     if state.is_relative_to(root) or root.is_relative_to(state):
         raise PipelineError('STATE_MUST_BE_SEPARATE')
@@ -97,7 +99,15 @@ def collect_generation(root: Path, state: Path, requester, verification: dict,
               'affiliateVerified': verification.get('verified') is True,
               'affiliateVerificationExpiresAt': verification.get('expiresAt'),
               'categories': categories, 'historyPreservation': preservation}
-    for value in (products, updated_history, status):
+    if output_policy is not None:
+        if not isinstance(output_policy, OutputPolicy):
+            raise PipelineError('OUTPUT_POLICY_INVALID')
+        output_policy.check_products(products)
+        output_policy.reject(updated_history, 'history')
+        output_policy.reject(status, 'status')
+    else:
+        assert_no_secrets(products, secrets)
+    for value in (updated_history, status):
         assert_no_secrets(value, secrets)
     generation = SnapshotStore(state).commit(root, products, updated_history, status, expected, checkpoint)
     return {'generation': str(generation), 'status': status}
@@ -122,7 +132,7 @@ def main() -> int:
             validate_queries(queries)
             client = RakutenClient(credentials, args.proxy, 2 * len(queries), args.ca_bundle)
             result = collect_generation(args.root, args.state, client, verification, now,
-                                        args.source_commit, credentials.values())
+                                        args.source_commit, credentials.values(), output_policy=client.output_policy)
             print('COLLECTION_PREPARED: categories=' + str(len(result['status']['categories'])))
         return 0
     except PipelineError as exc:

@@ -14,6 +14,7 @@ from pipeline_common import (COLLECTION_FILES, JST, PipelineError, exclusive_loc
                              read_bytes, timestamp)
 from rakuten_client import RakutenClient, validate_proxy
 from windows_credentials import affiliate_proof, read_windows_credentials
+from output_policy import OutputPolicy
 
 REPOSITORY_URL = 'https://github.com/noranamani/noranamani-gadget-deals.git'
 CODE_ROOT = Path(__file__).resolve().parents[1]
@@ -96,7 +97,8 @@ def run_update(cfg: dict, apply: bool, clock=lambda: datetime.now(timezone.utc))
         else:
             requester = client
         result = collect_generation(source, run / 'store', requester, verification, started,
-                                    base, credentials.values())
+                                    base, credentials.values(), output_policy=(client.output_policy
+                                    if isinstance(client.output_policy, OutputPolicy) else None))
         result['pushed'] = False
         if apply:
             require_finish_window(clock(), started)
