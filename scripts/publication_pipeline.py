@@ -12,6 +12,7 @@ from pathlib import Path
 
 from collection_pipeline import validate_queries
 from git_pipeline import GitRepository, valid_sha
+from note_provenance import make_manifest as make_note_manifest, validate_existing as validate_existing_note
 from pipeline_common import (JST, PipelineError, digest, load_json, read_bytes, sha256,
                              timestamp, validate_history, write_json)
 
@@ -44,6 +45,7 @@ def validate_publication(root: Path, now: datetime) -> dict:
             or (collected.astimezone(JST).hour, collected.astimezone(JST).minute) < (6, 10)):
         raise PipelineError('PRODUCTS_STALE_OR_FUTURE')
     if (edited < collected or edited > now or edited.astimezone(JST).date() != today
+            or (edited.astimezone(JST).hour, edited.astimezone(JST).minute) < (6, 30)
             or editorial.get('sourceProductsSha256') != status['productsSha256']):
         raise PipelineError('EDITORIAL_GENERATION_MISMATCH')
     categories = products.get('categories', [])
@@ -64,15 +66,12 @@ def validate_publication(root: Path, now: datetime) -> dict:
             or now - generated > timedelta(days=7)):
         raise PipelineError('NOTE_WEEK_OR_GENERATION_STALE')
     if today.weekday() == 6:
-        if generated < edited or weekly.get('sourceProductsSha256') != status['productsSha256']:
+        if (generated < edited or weekly.get('sourceProductsSha256') != status['productsSha256']
+                or (generated.astimezone(JST).hour, generated.astimezone(JST).minute) < (6, 40)):
             raise PipelineError('NOTE_SOURCE_GENERATION_MISMATCH')
     else:
         # On weekdays reuse the prior Sunday's bundle; do not regenerate old editorial with new prices.
-        manifest = load_json(root / 'note/latest/manifest.json')
-        if (manifest.get('generated_at') != generated.isoformat()
-                or manifest.get('source_products_sha256') != weekly.get('sourceProductsSha256')
-                or not re.fullmatch(r'[0-9a-f]{64}', str(weekly.get('sourceProductsSha256', '')))):
-            raise PipelineError('NOTE_EXISTING_BUNDLE_MISMATCH')
+        validate_existing_note(root, weekly)
     return {'includeNote': today.weekday() == 6, 'weeklyEnd': sunday.isoformat(),
             'productsSha256': status['productsSha256']}
 
@@ -105,9 +104,7 @@ def prepare_publication(root: Path, output: Path, source_commit: str, now: datet
     shutil.copytree(work / 'docs', bundle / 'docs')
     if decision['includeNote']:
         run_script(work, 'build_note_article.py')
-        run_script(work, 'build_note_manifest.py')
-        manifest = load_json(work / 'note/latest/manifest.json')
-        manifest['source_products_sha256'] = decision['productsSha256']
+        manifest = make_note_manifest(work)
         write_json(work / 'note/latest/manifest.json', manifest)
         run_script(work, 'check_note_bundle.py', 'note/latest')
         names = ['note/latest/' + n for n in ('article.md', 'article-cover.png', 'note-post.zip', 'manifest.json')]

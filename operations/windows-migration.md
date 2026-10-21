@@ -111,6 +111,44 @@ python -X utf8 -m unittest discover -s scripts -p "test_*.py" -v
 
 ## 承認後の移行順序と切り戻し
 
+## 初回移行の互換性と順序（承認後だけ実施）
+
+現行mainにはcollection-status.json、日次/週次のsourceProductsSha256、note/latest/manifest.jsonがない。旧JSONへ現在のハッシュや新しいgeneratedAtを機械的に埋めて整合したように扱ってはならない。取得・編集が成功して初めて新形式を採用する。未更新なら公開を停止し、直前の公開サイトを維持する。
+
+### 推奨: 日曜日から開始
+
+1. 独立バックアップと復元検証を済ませ、PRのdevelop取り込み・mainリリースを別途承認する。本番用ローカルenabledとRepository Variableは、承認した切替順序まで無効のままにする。
+2. 既存Oracle処理の停止を確認する。既存の日次/週次編集タスクは、同じmainの商品世代を読みsourceProductsSha256を記録する提示済みプロンプトへ、別途承認して更新する。新しいタスクは作らない。
+3. 06:10のWindows取得でproducts/history/statusを単一コミットとして作成する。欠測日を埋めない。06:30の日次編集はその世代だけを参照する。日曜06:40の週次編集も同じ商品世代と日次編集以降の実時刻を使う。
+4. 06:50の生成は新しい週次JSONから記事・画像・ZIP・manifestを作り、schema_version=1の共通契約を維持する。旧noteのmanifestがなくても、当日の週次編集が有効なら新規生成できる。元JSONや日付を埋め合わせる必要はない。
+5. 初回の一時生成・差分・履歴件数を監視し、承認したPages設定・有効化を最後に適用する。note実投稿は別途承認まで停止したままとする。
+
+### 平日開始を選ぶ場合: 旧noteを明示的に固定
+
+平日は既存noteを新価格で作り直さない。直近の日曜の週・生成日が確認できる既存記事/画像/ZIPを持つ場合だけ、移行承認後に次の準備を行える。古い週のままなら停止し、日曜開始を選ぶ。週や生成日を現在へ書き換えない。
+
+```powershell
+# 移行承認後の例。現在の最新mainを置いた専用checkoutを指定する。
+$sourceCommit = git -C 'C:\GadgetPipeline\checkout' rev-parse HEAD
+& 'C:\Python312\python.exe' -X utf8 'C:\GadgetPipeline\scripts\prepare_legacy_note.py' --root 'C:\GadgetPipeline\checkout' --source-commit $sourceCommit --output "$env:LOCALAPPDATA\GadgetPipeline\legacy-note-manifest.json"
+```
+
+このコマンドはリポジトリ外へmanifestを準備するだけで、Gitへの書込み・push・投稿・公開は行わない。入力4ファイルが指定コミットと一致することをGitフィルター込みで確認し、Git archiveで展開した原本のハッシュを記録する。WindowsのCRLFとGitのLFを混同しない。ZIPと単体Markdownの比較だけはCRLF/LF同値を認め、原本のファイルとZIPはそれぞれ変更せず別々にハッシュで固定する。画像は完全一致を要求する。
+
+manifestはsource_binding=legacy-preserved-unbound、元コミット、元週次JSONのハッシュ、記事/画像/ZIPのハッシュを持つ。sourceProductsSha256は捏造せず、旧noteと現在の商品の対応を確認済みと称さない。schema_version=1、媒体、issue_key、generated_at、既存ファイル名は維持する。
+
+本人が差分を確認し別途承認した後だけ、このmanifestをnote/latest/manifest.jsonへ採用して通常commit・pushする。旧記事・画像・ZIP・週次JSON・投稿台帳は変更しない。初回06:10取得と06:30編集が新形式を満たせば、06:50にサイトだけを生成し、旧noteは保存物として保持する。平日の公開処理はnoteをコミットしない。次の日曜は06:40の新しい編集を必須とし、旧note固定を理由に迂回しない。
+
+### 継続運用の停止条件とnote互換性
+
+- 日次編集は当日06:30以降、取得以降、公開準備以前、同じ商品ハッシュ・全カテゴリを要求する。日次の遅延・失敗で旧JSONが残れば停止する。
+- 日曜の週次編集は当日06:40以降、日次編集以降、準備以前、同じ商品ハッシュを要求する。未更新・ハッシュ欠落・前週のままなら停止する。
+- 新しい週次manifestはsource_binding=products-sha256、商品ハッシュ、週次JSONのハッシュ、記事/画像/ZIPのハッシュを保持する。平日はその一式を再検証し、破損や入替えがあれば公開へ進まない。
+- 共通note契約のschema_version=1、site_id、issue_key、status、title、article_path、cover_path、source_url、generated_atを維持する。既存check_note_bundle.pyとplan_note_queue.pyは追加フィールドを許容する。実投稿バッチの外部環境による受入れ試験は未実施で、実投稿・台帳更新は行わない。
+- GitHub Actionsのscheduleは遅延・欠落し得るため、06:50完了を保証しない。固定エラーコード・世代時刻・Actions結果を監視し、失敗時に時刻やハッシュを補完しない。[公式schedule仕様](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)
+
+## 切り替え操作と切り戻し
+
 1. PRをレビューしdevelopへの取り込みを判断する。本番main取り込みも別途承認する。
 2. 既存Oracleの両処理が停止していることを確認する。認証・帰属・CA・GCM・既存編集タスクの設定を確認する。
 3. 専用ローカル環境でログオン時限定のプレビューを承認のうえ確認する。実APIへの追加通信は理由と回数を示し別途承認を得る。ログオフ状態の試験は行わない。

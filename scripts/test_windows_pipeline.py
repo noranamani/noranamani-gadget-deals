@@ -406,14 +406,17 @@ class PublicationTests(TemporarySource):
     def test_no_implicit_note_write(self):
         with self.assertRaisesRegex(PipelineError,'NOT_APPROVED'): persist_note(Mock(),self.base/'absent',SUNDAY)
     def test_weekday_preserves_previous_sunday_note_source(self):
+        for folder in ('scripts','docs','note'): shutil.copytree(ROOT/folder,self.root/folder)
+        generated = self.base/'sunday-bundle'
+        prepare_publication(self.root,generated,SHA,SUNDAY)
+        shutil.copytree(generated/'bundle/note',self.root/'note',dirs_exist_ok=True)
         sunday_hash=digest(self.root/'data/products.json')
         monday=SUNDAY+timedelta(days=1)
         self.edit('products.json',updatedAt=monday.replace(hour=6,minute=10).isoformat())
         product_hash=digest(self.root/'data/products.json')
         self.edit('collection-status.json',collectedAt=monday.replace(hour=6,minute=10).isoformat(),productsSha256=product_hash)
         self.edit('editorial.json',generatedAt=monday.replace(hour=6,minute=30).isoformat(),sourceProductsSha256=product_hash)
-        write_json(self.root/'note/latest/manifest.json',{'generated_at':SUNDAY.replace(hour=6,minute=40).isoformat(),
-            'source_products_sha256':sunday_hash})
+        self.assertEqual(load_json(self.root/'note/latest/manifest.json')['source_products_sha256'],sunday_hash)
         self.assertFalse(validate_publication(self.root,monday)['includeNote'])
         self.edit('note-weekly.json',sourceProductsSha256=product_hash)
         with self.assertRaisesRegex(PipelineError,'EXISTING_BUNDLE'):
