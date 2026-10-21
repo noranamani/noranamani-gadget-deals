@@ -736,3 +736,101 @@ GitHub上の最新調査文書（文書用ブランチff40401）とDraft PR #1�
 **今回の最小実API試験では、SECRET_IN_OUTPUTの修正と正規返却URLの扱いが成功した。** 有効な本人確認記録との併用、同じWindowsユーザー・プロキシ・TLS検証条件で、実際に3商品を取得できた。これは全カテゴリ更新、定期タスク経由の修正後取得、画面ロック/RDP切断中の実行、成果報酬実績、Pages公開の成功を意味しない。
 
 今回GitHubへpushするのは文書用ブランチfeature/rakuten-network-validation-docsのこの調査文書だけ。実装はfeature/windows-data-pipelineのeba9b26を維持し、Draft PR #1の想定取り込み先はdevelopのまま。main/developへのpush・マージ、本番データ変更、Windowsタスク登録・変更、Pages設定変更・公開、note投稿、電源設定変更、ChatGPTタスク追加・変更は行っていない。本番移行には別途レビューと承認が必要である。
+
+## 第1段階: 独立バックアップ・Draft PR最終レビュー（2026-10-21）
+
+ユーザー承認の範囲はバックアップ、復元検証、レビュー、featureブランチ上の修正・テストまで。本番移行の有効化は行わない。最新文書033d5ddとDraft PR #1（開始時head eba9b26、base develop=40db906）を確認した。今回の楽天API呼出しは**0回**。前回承認された最小取得のHTTP 200・3商品成功は前節の記録として引き継いだ。
+
+### 最新mainと独立バックアップ
+
+最新mainを専用の一時mirrorへ取得し、保存終了時にもmainが進んでいないことを確認した。元の作業checkoutは更新・resetしていない。
+
+| 項目 | 保存時の値 |
+| --- | --- |
+| mainコミット | 40db906e79ba371e99d20406e662b0e89815ca97 |
+| コミット日時 | 2026-10-19 21:50:09 UTC / 2026-10-20 06:50:09 JST |
+| products.updatedAt | 2026-10-19 21:10:09.225992 UTC / 2026-10-20 06:10:09.225992 JST |
+| 履歴の最終日付 | 2026-10-19（既存UTC日付を維持） |
+| 価格履歴 | 473商品・2,905記録 |
+| 原本スナップショット | 最新mainの全71ファイル |
+| Git履歴 | 取得時の全6参照から到達できる162コミット |
+| OneDrive同期 | 対象外 |
+
+保存先は本人のLOCALAPPDATA配下のGadgetPipeline/backups/production-main-20261021-163306-23bb8c。ユーザーへの報告には実際のローカル絶対パスを示すが、公開文書にはユーザー名を含めない。バックアップ本体はGitHubへpushしない。
+
+- main.tar: mainの全追跡ファイル。products/history、editorial、週次note、note生成物とarchive、queries/site/比較設定、カテゴリ拡張状態、docs全体、workflow、ソース・運用文書を含む。
+- history.bundle: 取得した全参照のGitオブジェクト・コミット履歴を含む自己完結bundle。GitHubなしで一時mirrorを復元できる。
+- backup-manifest.json: main SHA、時刻、全71ファイルのSHA-256、参照、保存物と検証結果。
+- RESTORE.txt、SHA256SUMS.json: 別ディレクトリへの復元例と保存ファイルの照合値。
+
+422個のGit blobを秘密値とメモリ内照合し、Access Key、GitHubトークン、追跡URL外の登録IDの混入がないことを確認した。既存の公開商品・noteリンクは元のまま保全しており、その公開追跡用ID表現は非公開の認証設定と区別する。Windows資格情報データベース、Gitの個人用config/GCM、本人確認記録、社内プロキシ設定、ブラウザープロファイルはバックアップに含めない。bundleはGit履歴そのもので、これらのローカル設定をコピーしていない。
+
+| 保存物 | SHA-256 |
+| --- | --- |
+| main.tar | 8daf33d442f8acc23115b193ef29a8173093cfb76af5f100532d2d4302bccd17 |
+| history.bundle | 0b7dfae1ee00578a2405d7b12818fb8cc4eeccb57f347d534a321313217fc32d |
+| backup-manifest.json | b9c792bab42da6b702de47eddb9ab0a600b5b1a37aa1df8dcec0df47e4f75ee6 |
+| RESTORE.txt | bd5670faa5409b817f48a931d2d96a797f531979a8546ab3a984451bb1fc38bd |
+
+### 原本とWindows改行の区別・復元検証
+
+追加の改行テストにより、WindowsのGit設定によってgit archiveがLFをCRLFへ変換することを確認した。最初に作成したproduction-main-20261021-161534-93ac23はWindows改行版として保持し、削除・上書きしていない。推奨復旧元は上記の新しい原本LF版。mainにデータ更新があったわけではない。
+
+新しいバックアップは改行変換を無効にして展開し、71ファイルすべてをgit showで読んだ元blobのバイト列とSHA-256で照合した。その後、**別の一時領域にhistory.bundleだけからmirrorをcloneし、bundle verify、fsck --full --strict、全6参照の一致、mainの再archive、tarの一時展開と全71ファイルのSHA-256一致を確認した。** 一時復元領域は削除済み。GitHub上の既存履歴へ接続せず復元できた。
+
+以前の報告値はWindows作業checkoutのハッシュだった。Git原本はLFなので、次のように区別する。どちらも今回変更していない。
+
+| ファイル | Git原本LF・新バックアップ | 元のWindows checkout CRLF |
+| --- | --- | --- |
+| products.json | 66ae79827b53a01b13c129061461ae0f9c034fa4ac6501b567c7cc668f8f31b5 | dd00a3dfaed230bfe4513c0818c29f4c10111a13a1cd2ca7b6a214758f22d51b |
+| history.json | ffa0ed568eb87416bef5b0b47c0c20d0d13b9cd99b64fc447fa13b65c5385b25 | 31775aa3c69222f5626193f8de792c1d57a96887fec39eb4da30002b1723c2f0 |
+
+復元時は新しいmanifestとRESTORE.txtに従い、原本archiveにはcore.autocrlf=false / core.eol=lfを指定する。GitHubのPages設定、Repository Variables、Windowsタスク、資格情報はGitバックアップの対象外で、必要時に別途承認して復旧する。同一PCのローカルディスク故障まではこの保存だけで対処できないため、別媒体への追加保管は今後の運用課題。
+
+### PR全変更のレビュー範囲
+
+開始時の全24変更ファイルと、今回追加した3ファイルの計27ファイルを確認した。未変更のnote契約・生成/検証/キュー処理、サイト生成、比較設定・カテゴリ拡張も依存先として確認した。
+
+| 対象ファイル群 | レビュー結果 |
+| --- | --- |
+| collection_pipeline.py、fetch_rakuten.py、pipeline_common.py | 履歴欠損・不正JSONで停止。全旧キー・旧行のprefix一致、同日異価格停止、全履歴保持、原本バックアップ、世代検証を維持。欠測日の補完なし |
+| rakuten_client.py、output_policy.py、windows_credentials.py | 資格情報3件の非表示読取、30日期限、プロキシ/TLS、API原文URL、限定的な追跡欄検査、Access Key全位置拒否、1.3秒間隔・再試行なしを維持 |
+| git_pipeline.py、run_windows_update.py | 許可した3データの単一コミット、専用index、非force競合停止、時間枠、二重起動抑止、適用の二重有効化条件を維持。Git原本の展開を今回修正 |
+| publication_pipeline.py、note_provenance.py、prepare_legacy_note.py | 旧note初回互換性、週次bundleの内容固定、編集時刻の下限を今回修正 |
+| windows-daily-publish.yml、windows-pipeline-checks.yml | 06:50 JST、mainかつ明示有効化、公式Action SHA固定、job別権限、明示Pages Artifact公開。featureでは本番公開しない |
+| publish.sh、rebuild_from_editorial.sh、run_without_ai.sh | 旧Oracle入口は書込み・取得・push前に停止 |
+| test_windows_pipeline.py、test_windows_wrapper.py、test_output_policy.py、test_first_migration.py | 正常・異常、履歴、Git競合、秘密値、公開鮮度、初回互換性を回帰検証 |
+| AGENTS.md、README.md、.gitignore、日次/週次プロンプト、windows-migration.md、windows-pipeline.example.json | 常時ログオン、Python直接実行、秘密設定の分離、既存編集タスクの更新案、承認後の切替と切戻しを確認 |
+
+### 発見事項と修正
+
+1. **平日の初回公開が停止する互換性問題。** 現行mainはcollection-status.json、編集JSONの商品ハッシュ、note manifestを持たない。日次編集のハッシュは新しい取得・編集で作り、旧noteには推測で埋めない。prepare_legacy_note.pyは指定コミットの旧note4ファイルを確認し、リポジトリ外へ明示的な移行manifestを準備する。legacy-preserved-unboundとして原本・元週次JSON・元コミットを固定し、過去の商品ハッシュを捏造しない。直近日曜の週と生成日が合う平日だけ利用でき、日曜の新編集要件を迂回しない。
+2. **既存bundleの内容対応が不足。** 従来の平日判定は時刻と商品ハッシュだけで、記事・画像・ZIPの対応を十分固定していなかった。新manifestは週次JSONと3ファイルのハッシュを保持し、ZIP内容との一致も確認する。schema_version=1と共通必須項目・ファイル名は維持する。
+3. **編集時刻の下限。** 同じ商品世代でも06:30前の日次や06:40前の週次を受け入れ得たため、それぞれのJST下限を追加。遅延・失敗で残った旧世代、未来の編集、不一致カテゴリは公開前に停止する。
+4. **WindowsのGit archive改行変換。** 日次入力・編集ハッシュ・初回manifestの基準がOS設定で変わる問題を修正。展開時の改行変換を抑止し、全ファイルをGit tree/blobの内容と照合する。export-subst/export-ignore、リンクや不正パスによる原本変更・欠落でも展開前に停止する。既存checkout・本番Gitデータは変更しない。
+
+今回の実装修正は7ファイル: scripts/note_provenance.py、scripts/prepare_legacy_note.py、scripts/publication_pipeline.py、scripts/git_pipeline.py、scripts/test_first_migration.py、scripts/test_windows_pipeline.py、operations/windows-migration.md。初回移行修正7ce59733と、原本展開修正92d02401をfeature/windows-data-pipelineへ通常pushした。安全チェックの無効化、APIリンク改変、過去履歴の書換えは行っていない。
+
+### テストと初回移行リハーサル
+
+ローカルWindowsで**既存126件＋今回21件＝147件**が成功。新規テストは将来の実データ更新に依存しないfixtureを用い、既存473商品・2,905記録の保全はバックアップ照合と従来の全行保全テストで確認した。API・GitHub本番書込みは使わない。
+
+最終head [92d02401934914b650d10ccd9ada67e29aad77fd](https://github.com/noranamani/noranamani-gadget-deals/commit/92d02401934914b650d10ccd9ada67e29aad77fd)の[GitHub Actions回帰CI](https://github.com/noranamani/noranamani-gadget-deals/actions/runs/39563178900)でも、Windows・Ubuntuそれぞれ147件すべて成功。[Draft PR #1](https://github.com/noranamani/noranamani-gadget-deals/pull/1)は未マージである。
+
+- 平日: manifestなしは停止。明示的な旧note固定後は、06:10取得と06:30編集の新世代でサイトだけを生成し、旧記事・画像・ZIP・週次JSONは変更しない。
+- 日曜: 旧manifestの有無に依存せず、当日の商品・日次・週次ハッシュが一致すれば記事・画像・ZIP・共通manifest6ファイルを生成。週次ハッシュ欠落・前週・06:40前では停止。
+- 日次/週次: 既存ハッシュ欠落、前日編集、未完了の未来編集、商品世代の不一致、bundle/週次JSON改変、ZIP不一致を拒否。
+- Windows改行: core.autocrlf=trueの一時GitでCRLF checkoutとLF blobを区別し、移行manifestがGit原本を指すことを検証。export-substの原本改変は拒否。
+- 既存のHTTP 401/403/429/500、タイムアウト、履歴破損、少数取得、同日価格競合、二重起動、Git push競合、カテゴリ拡張、比較ページ、秘密値混入、Pages前の世代/鮮度停止も成功。
+
+さらに、新しい独立bundleから最新mainを一時cloneし、実際の旧note一式で平日初回移行を再現した。日次商品・編集は明示的なfixture世代にだけ置き換え、旧noteの実ファイルは変更せず、原本から準備したmanifestでサイト24ファイルの生成・検証に成功した。履歴はGit原本と一致し、既存のnote読取検証にも合格。実API通信・投稿・公開はなく、全リハーサル領域は削除済み。外部の実投稿バッチ環境による受入れ試験は未実施。
+
+### 本番切替の推奨順序・残るリスク
+
+**日曜開始を推奨。** バックアップ確認 → PRレビューとdevelop/mainリリースの個別承認 → Oracle停止確認と既存編集プロンプトの承認済み更新 → 06:10の商品・履歴取得 → 06:30の日次編集 → 日曜06:40の週次編集 → 06:50の生成・検証 → 承認したPages/有効化設定の適用・初回監視とする。本人確認記録の期限、GCM、プロキシ/TLS、常時起動・ログイン維持を本番前に再確認する。
+
+平日開始なら、先に旧noteをリポジトリ外で検証し、本人レビューと追加承認後にmanifestだけを採用する。過去の商品ハッシュや日付を補完せず、旧noteの週が古い場合は停止して日曜開始を選ぶ。具体的なコマンドと承認後の操作はoperations/windows-migration.mdに追記した。今回は本番用manifestを採用していない。
+
+コード上で発見した問題は修正したが、修正後の全カテゴリ定期実行・画面ロック/RDP切断・実Pagesデプロイ・外部note投稿バッチの受入れは未検証。本番移行は承認待ち。Actionsの遅延/欠落、note保存とPagesの非原子的な切替、デプロイ直前の微小な競合窓、バックアップ容量・同一ディスク故障も運用課題として残る。[Pagesの公式workflow要件](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)、[scheduleの公式仕様](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)を確認した。
+
+今回GitHubへ反映するのはfeature/windows-data-pipelineの修正と、この文書用ブランチの調査記録だけ。Draft PR #1はdevelop向けのDraftを維持。main/developへのpush・マージ、本番データ更新、Windows本番タスク登録・有効化、Pages/Repository Variables変更、本番公開、note投稿、ChatGPTタスク追加・変更は行っていない。
