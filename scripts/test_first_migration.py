@@ -10,9 +10,10 @@ from pathlib import Path
 
 import test_windows_pipeline as fixtures
 from check_note_bundle import validate as check_note_bundle
+from build_note_article import build_article, draw_cover
 from git_pipeline import GitRepository
 from note_provenance import make_manifest, validate_existing
-from pipeline_common import PipelineError, digest, load_json, source_hashes, write_json
+from pipeline_common import PipelineError, digest, load_json, sha256, source_hashes, write_json
 from prepare_legacy_note import prepare_legacy_manifest
 from publication_pipeline import prepare_publication, validate_publication, run_script, verify_bundle
 
@@ -35,6 +36,17 @@ class FirstMigrationTests(unittest.TestCase):
             item['url'] = fixtures.LINK
         write_json(self.root/'data/products.json',products)
         self.day(WEDNESDAY)
+        weekly = {'generatedAt':'2026-10-18T06:40:00+09:00', 'weekLabel':'2026/10/12〜2026/10/18',
+            'title':'検証用週次記事', 'intro':'移行試験用の架空編集です。', 'featured':[],
+            'points':['保存済み記事を維持する試験'], 'closing':'試験用データです。', 'hashtags':['検証']}
+        write_json(self.root/'data/note-weekly.json',weekly)
+        latest = self.root/'note/latest'
+        (latest/'manifest.json').unlink(missing_ok=True)
+        (latest/'article.md').write_bytes(build_article(weekly,products).encode('utf-8'))
+        draw_cover(latest/'article-cover.png',weekly['weekLabel'])
+        with zipfile.ZipFile(latest/'note-post.zip','w') as archive:
+            for name in ('article.md','article-cover.png'):
+                archive.write(latest/name,name)
 
     def tearDown(self):
         self.temp.cleanup()
@@ -68,18 +80,16 @@ class FirstMigrationTests(unittest.TestCase):
     def note_hashes(self):
         return {p.name:digest(p) for p in (self.root/'note/latest').iterdir() if p.is_file()}
 
-    def test_existing_main_has_legacy_note_and_missing_source_fields(self):
-        for name in ('editorial.json','note-weekly.json'):
-            self.assertNotIn('sourceProductsSha256',load_json(fixtures.ROOT/'data'/name))
-        self.assertFalse((fixtures.ROOT/'note/latest/manifest.json').exists())
-        history=load_json(fixtures.ROOT/'data/history.json')
-        self.assertEqual((len(history),sum(map(len,history.values()))),(473,2905))
+    def test_collection_status_is_required_before_first_publication(self):
+        (self.root/'data/collection-status.json').unlink()
+        with self.assertRaisesRegex(PipelineError,'INPUT_UNAVAILABLE'):
+            validate_publication(self.root,self.now)
 
     def test_weekday_without_explicit_bootstrap_stops(self):
         with self.assertRaisesRegex(PipelineError,'NOTE_BOOTSTRAP_REQUIRED'):
             validate_publication(self.root,self.now)
 
-    def test_weekday_preserves_actual_legacy_bundle_with_explicit_manifest(self):
+    def test_weekday_preserves_fixture_legacy_bundle_with_explicit_manifest(self):
         before=self.note_hashes()
         self.install_legacy_manifest()
         decision=validate_publication(self.root,self.now)
@@ -191,6 +201,9 @@ class FirstMigrationTests(unittest.TestCase):
     def test_bootstrap_is_only_from_exact_committed_legacy_bytes(self):
         repo=GitRepository(self.root)
         repo.run('init','-b','main')
+        repo.run('config','core.autocrlf','true')
+        article = self.root/'note/latest/article.md'
+        article.write_bytes(article.read_bytes().replace(b'\r\n',b'\n').replace(b'\n',b'\r\n'))
         files=['data/note-weekly.json','note/latest/article.md','note/latest/article-cover.png','note/latest/note-post.zip']
         repo.run('add',*files);repo.run('commit','-m','test: legacy note fixture')
         commit=repo.run('rev-parse','HEAD').decode().strip()
@@ -198,6 +211,7 @@ class FirstMigrationTests(unittest.TestCase):
         output=self.base/'legacy-manifest.json'
         record=prepare_legacy_manifest(self.root,output,commit,self.now)
         self.assertEqual(record['legacy_source_commit'],commit)
+        self.assertEqual(record['files_sha256']['article.md'],sha256(repo.run('show',commit+':note/latest/article.md')))
         self.assertEqual(self.note_hashes(),before)
         self.assertFalse((self.root/'note/latest/manifest.json').exists())
         self.edit('note-weekly.json',closing='changed fixture')

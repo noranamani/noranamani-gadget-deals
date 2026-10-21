@@ -23,6 +23,8 @@ products/history/collection-statusのJSONを検証・fsyncし、元データの�
 
 Gitにはこの3ファイルだけを単一コミットとして作成する。専用インデックスを使用し、運用checkoutや既存インデックスをresetしない。開始時mainに変更があれば停止し、通常の非force pushでも競合を拒否する。通信途絶時は成否不明として停止し、次回にリモートを確認する。rebase・force push・自動再pushは行わない。
 
+入力スナップショットはGitの改行変換を無効にして展開し、全ファイルの内容を元コミットのtree/blobと照合する。Windowsのautocrlf設定で商品・履歴・編集データのハッシュ基準を変えない。export-substやexport-ignore等で原本から変更・欠落する場合も停止する。Windowsの既存checkoutがCRLFなら、そのSHA-256とGit原本（LF）のSHA-256は区別して記録する。バックアップの復元では、そのバックアップに付属するmanifestのバイト単位ハッシュを使う。
+
 ## 本番移行後の個人用設定（今回実行しない）
 
 Python 3.12とGit for Windowsを使用する。コード配置と実行状態はOneDrive同期外、例としてLOCALAPPDATA配下に分離する。タスクの実行ユーザーだけがアクセスできるACLを確認し、コード・CA・設定への第三者の書込を許可しない。

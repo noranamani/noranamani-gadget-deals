@@ -322,6 +322,16 @@ class GitTransactionTests(unittest.TestCase):
         self.repo.archive(self.base,dest)
         self.assertEqual(read_bytes(dest/'keep.txt'),b'preserve')
         self.assertEqual(self.repo.run('status','--porcelain'),b'')
+    def test_archive_rejects_export_substitution_instead_of_changing_blob_bytes(self):
+        write_bytes(self.root/'.gitattributes',b'keep.txt export-subst\n')
+        write_bytes(self.root/'keep.txt',b'$Format:%H$\n')
+        self.repo.run('add','.gitattributes','keep.txt')
+        self.repo.run('commit','-m','test: export substitution fixture')
+        commit=self.repo.run('rev-parse','HEAD').decode().strip()
+        dest=Path(self.temp.name)/'unsafe-archive'
+        with self.assertRaisesRegex(PipelineError,'ARCHIVE_CONTENT_MISMATCH'):
+            self.repo.archive(commit,dest)
+        self.assertFalse(dest.exists())
     def test_pre_push_deadline_failure_leaves_remote(self):
         commit=self.repo.prepare_commit(self.base,self.files(),'collection')
         def fail(): raise PipelineError('DEADLINE')

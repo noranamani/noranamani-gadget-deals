@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import io
+import hashlib
 import os
 import re
 import subprocess
@@ -60,14 +61,34 @@ class GitRepository:
     def archive(self, commit: str, destination: Path) -> None:
         if not valid_sha(commit) or destination.exists():
             raise PipelineError('ARCHIVE_CONTEXT_INVALID')
-        payload = self.run('archive', '--format=tar', commit)
-        destination.mkdir(parents=True)
+        # Status hashes describe Git blob bytes. Windows autocrlf must not alter the snapshot.
+        payload = self.run('-c', 'core.autocrlf=false', '-c', 'core.eol=lf',
+                           'archive', '--format=tar', commit)
+        tracked = {}
+        for entry in self.run('ls-tree', '-r', '-z', commit).split(b'\0'):
+            if not entry:
+                continue
+            metadata, _, name = entry.partition(b'\t')
+            mode, kind, oid = metadata.split()
+            if kind != b'blob' or mode not in (b'100644', b'100755'):
+                raise PipelineError('ARCHIVE_PATH_UNSAFE')
+            tracked[name.decode('utf-8')] = oid.decode('ascii')
         with tarfile.open(fileobj=io.BytesIO(payload), mode='r:') as archive:
             # No links, special files or parent traversal, even from a compromised tree.
+            actual = {}
             for member in archive.getmembers():
                 path = PurePosixPath(member.name)
                 if path.is_absolute() or '..' in path.parts or not (member.isfile() or member.isdir()):
                     raise PipelineError('ARCHIVE_PATH_UNSAFE')
+                if member.isfile():
+                    if member.name in actual:
+                        raise PipelineError('ARCHIVE_CONTENT_MISMATCH')
+                    data = archive.extractfile(member).read()
+                    header = b'blob ' + str(len(data)).encode('ascii') + b'\0'
+                    actual[member.name] = hashlib.sha1(header + data, usedforsecurity=False).hexdigest()
+            if actual != tracked:
+                raise PipelineError('ARCHIVE_CONTENT_MISMATCH')
+            destination.mkdir(parents=True)
             archive.extractall(destination, filter='data')
 
     def prepare_commit(self, base: str, files: dict[str, bytes], kind: str) -> str:
