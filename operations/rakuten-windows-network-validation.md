@@ -4,6 +4,10 @@
 
 ## 現在の結論
 
+**本番移行用コードを別の作業ブランチへ実装し、develop向けDraft PR #1を作成した。** 既存17件と新規76件の計93件が、ローカルWindowsおよびGitHub ActionsのWindows/Ubuntuで成功した。最新の詳細は末尾「本番移行コードの実装・レビュー準備」を参照。本番データ・実行環境は未変更で、アフィリエイト本人照合・無人実行試験・本番移行承認を待つ。
+
+## 前回時点の結論（11:01 JST）
+
 **2026-10-21 11:01 JST、資格情報3件を利用した全8カテゴリの取得と、既存履歴の完全な継承に成功した。** 実APIは16リクエストすべてHTTP 200。カテゴリ内の重複排除後は合計406件、全体では404固有商品を取得した。一時環境の履歴は既存473キー・2,905記録をすべて維持して3,309記録となった。本番の商品データ・価格履歴は変更していない。
 
 安全性・通信変換・鮮度判定の追加テスト41件、既存テスト17件が成功した。サイトとnoteセットも一時環境で生成できた。ただし、登録Affiliate IDへのリンク帰属、古い編集データを止める本番側の鮮度判定、安全な取得処理の本番コードへの組み込み、無人実行試験、本番移行の承認が残っている。
@@ -12,7 +16,7 @@
 
 APIキー、トークン、パスワードは記載していない。公開リポジトリでの参照を想定し、社内プロキシのアドレス、出口IPの一部、PC内の絶対パスも省略した。
 
-## 実施範囲と保全
+## 前回の実施範囲と保全
 
 - 調査したmain: `40db906e79ba371e99d20406e662b0e89815ca97`。
 - `AGENTS.md`、`README.md`、`SETUP-CODEX.md`、`scripts/`、GitHub Actions、`config/`、note関連処理を調査した。
@@ -22,7 +26,7 @@ APIキー、トークン、パスワードは記載していない。公開リ�
 - HTTPS証明書検証とホスト名検証は有効にした。
 - 実際の商品データと価格履歴は変更していない。前回の生成テストも `.git` を含まない一時コピーで実施した。
 - 商品データのpush、本番公開、Windowsタスク登録・変更、ChatGPTタスク追加、noteへのログイン・投稿は行っていない。
-- 今回GitHubに保存する変更は、このドキュメント1ファイルだけである。
+- 前回のGitHub保存対象は、このドキュメント1ファイルだけだった。今回のコード実装は末尾に別記する。
 
 再検証前後のSHA-256は一致した。
 
@@ -31,7 +35,7 @@ APIキー、トークン、パスワードは記載していない。公開リ�
 | `data/products.json` | `dd00a3dfaed230bfe4513c0818c29f4c10111a13a1cd2ca7b6a214758f22d51b` |
 | `data/history.json` | `31775aa3c69222f5626193f8de792c1d57a96887fec39eb4da30002b1723c2f0` |
 
-## 最新結果: 全カテゴリ取得・履歴保全・異常系検証（11:01 JST）
+## 前回結果: 全カテゴリ取得・履歴保全・異常系検証（11:01 JST）
 
 ### 資格情報と実API取得
 
@@ -340,7 +344,7 @@ IP登録の際は次を確認する。
 5. 旧06:50方式まで戻す場合に限り、Actions公開を止め、最新データから生成・検証してPages公開元と旧生成処理を戻す。
 6. 両取得元を同時稼働させない。コード・設定だけを戻し、リポジトリ全体を過去へ強制pushしない。
 
-## 次に再開する作業
+## 前回時点の次の作業（最新状況は末尾参照）
 
 **全カテゴリ取得・履歴保全・異常系の一時検証は完了した。** 次はアフィリエイト帰属の確認と、本番コード・公開前鮮度チェックの実装案をレビュー可能な差分へまとめ、ログオフ・再起動後の資格情報利用など未検証項目を詰める段階である。今回、本番の取得処理・Actions・Windowsタスク・note投稿には反映していない。
 
@@ -368,3 +372,102 @@ IP登録の際は次を確認する。
 - [GitのHTTPS・プロキシ設定](https://git-scm.com/docs/git-config)
 - [GitHub scheduleの制約](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)
 - [GitHub Pagesのカスタムworkflow](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)
+
+## 本番移行コードの実装・レビュー準備（2026-10-21 14:23 JST）
+
+前回の文書コミット [727bf012d09d7541668eba1640cfc0d2855ef05c](https://github.com/noranamani/noranamani-gadget-deals/commit/727bf012d09d7541668eba1640cfc0d2855ef05c) を読み、上記の11:01 JSTの実API結果を引き継いだ。今回は本番への移行を行わず、別checkoutと新しい作業ブランチでコードを実装した。通常Windowsユーザーで資格情報3件の読み取りを再確認したが、値は一切表示・保存していない。
+
+### ブランチ・コミット・レビュー
+
+- 実装元: ローカルdevelop（mainと同じ40db906e79ba371e99d20406e662b0e89815ca97）。
+- 作業ブランチ: [feature/windows-data-pipeline](https://github.com/noranamani/noranamani-gadget-deals/tree/feature/windows-data-pipeline)。
+- コードコミット: [9220e09c0b8cbe424fa13e41e73b7422855d755b](https://github.com/noranamani/noranamani-gadget-deals/commit/9220e09c0b8cbe424fa13e41e73b7422855d755b)。
+- レビュー用Draft PR: [#1 Windows取得と有効化制御付きPages公開](https://github.com/noranamani/noranamani-gadget-deals/pull/1)、feature/windows-data-pipeline → develop。
+- リモートにdevelopがなかったため、既存mainと同じ40db906を指すdevelopを作成した。develop/mainへの変更コミットの取り込み・マージは行っていない。
+- この調査記録は引き続きfeature/rakuten-network-validation-docsへ保存する。コード変更を文書ブランチへ混在させない。
+
+### 実装ファイル（22ファイル）
+
+| 対象 | 役割 |
+| --- | --- |
+| scripts/fetch_rakuten.py | 副作用を分離した商品計算、全カテゴリ、過去履歴全行保全、UTC日付継承 |
+| scripts/windows_credentials.py | Windows汎用資格情報3件、値を出さない確認、本人によるアフィリエイト照合記録 |
+| scripts/rakuten_client.py | 明示プロキシ、TLS/ホスト名検証、リダイレクト禁止、1.3秒間隔、予算制限、再試行なし |
+| scripts/pipeline_common.py | 厳密JSON、履歴検証、バックアップ、世代保存、単一ポインター切替、排他ロック |
+| scripts/collection_pipeline.py | カテゴリ網羅・件数下限・履歴保全と同一世代ハッシュの検証 |
+| scripts/git_pipeline.py | 専用インデックス、許可ファイルだけの単一Gitコミット、非force pushと競合停止 |
+| scripts/run_windows_update.py | Python直接実行ラッパー、初期プレビュー、明示適用、開始窓・期限・排他 |
+| scripts/publication_pipeline.py | 商品/日次/週次の鮮度・ハッシュ、公開成果物検証、note保存、デプロイ直前main確認 |
+| .github/workflows/windows-daily-publish.yml | 毎日06:50 JST、初期無効、準備→note保存→明示Pagesデプロイ |
+| .github/workflows/windows-pipeline-checks.yml | API・本番資格情報を使わないWindows/Ubuntu CI |
+| scripts/test_windows_pipeline.py、scripts/test_windows_wrapper.py | 新規正常系・異常系76テスト |
+| scripts/publish.sh、scripts/run_without_ai.sh、scripts/rebuild_from_editorial.sh | 旧Oracle処理の誤起動を防ぐ即時停止 |
+| operations/windows-migration.md、operations/windows-pipeline.example.json | 承認後の設定、テスト、運用、切り戻し案。設定例は架空エンドポイントで初期無効 |
+| AGENTS.md、README.md | 移行後の役割と停止条件、手順への導線 |
+| codex/daily-automation-prompt.md、codex/weekly-note-editorial-prompt.md | 既存タスクに適用するプロンプト案。実タスクは変更していない |
+| .gitignore | 個人用設定、確認記録、実行状態の誤登録防止 |
+
+詳細なレビュー資料: [Windows移行手順](https://github.com/noranamani/noranamani-gadget-deals/blob/feature/windows-data-pipeline/operations/windows-migration.md)。
+
+### 検証結果
+
+**Python 3.12で93件（既存17＋新規76）すべて成功。** ローカルWindowsに加え、[PRのGitHub Actions](https://github.com/noranamani/noranamani-gadget-deals/actions/runs/39549126256) のwindows-latestとubuntu-latestで、各93件の成功をログから確認した。2 workflowのYAML構造と公式ActionのコミットSHA固定も検査した。公開workflowは実行していない。
+
+- 疑似HTTP 401/403/429/500、タイムアウト、JSON破損、空・少数カテゴリ、部分失敗で停止。APIの自動再試行なし。
+- 履歴不存在・破損・不正schemaでAPI呼出し前に停止。全旧キー・旧行を維持し、120行超の切捨て・欠測日補完をしない。同日同価格は冪等、同日異価格は停止。
+- products出力後やポインター置換前の例外で、前の採用世代を維持。バックアップのハッシュ一致、取得中の入力変更検知を確認。
+- ロック衝突、Git先行更新、許可以外のコミット対象、適用無効、開始時間外、push時間不足、帰属未確認で停止。
+- WindowsラッパーのプレビューとAPI失敗時には、Gitコミット作成・pushが呼ばれないことを確認。
+- 一時環境で8カテゴリページ、既存比較ページ5件以上、note記事・PNG・ZIP・manifestの生成・検証に成功。日曜に6ファイルのnoteセットを用意し、平日は前日曜の生成世代を維持する判定を確認。
+- 古い商品・日次/週次の元ハッシュ不一致・古い週・帰属未確認/期限切れ・成果物改変で公開前に停止。
+- 公開予定22ファイルを実資格情報の値と照合し、混入なし。トークン形式・不要な社内エンドポイントも混入なし。
+
+#### 前回の実応答を新コードで再生
+
+今回の楽天API新規リクエストは**0回**。前回取得した16応答の必要フィールドを再生した。帰属情報を保存していないため、アフィリエイトURLだけは明示的な架空フィクスチャに差し替えた。この再生は商品計算・履歴保全の検証であり、実リンク帰属の証明ではない。フィクスチャや生成結果はmainに反映していない。
+
+| カテゴリID | 重複排除後 | 掲載 |
+| --- | --- | --- |
+| usb-charger | 53 | 18 |
+| wireless-charger | 48 | 18 |
+| microsd | 51 | 18 |
+| car-charger | 51 | 18 |
+| car-phone-holder | 58 | 18 |
+| carplay-android-auto | 51 | 18 |
+| dashcam | 58 | 18 |
+| mobile-router | 36 | 18 |
+| 合計（カテゴリをまたぐ重複を含む） | 406 | 144 |
+
+473キー・2,905行をすべて維持し、404行追加後は473キー・3,309行。コードcheckoutと元checkoutの本番products/historyは、上掲のSHA-256のままである。
+
+### アフィリエイト帰属の確認結果
+
+[楽天公式FAQ](https://webservice.faq.rakuten.net/hc/ja/articles/900001970686) は、APIの入力Affiliate IDと返却URLに含まれるIDが異なる場合があることを説明している。[別の公式説明](https://webservice.faq.rakuten.net/hc/ja/articles/900001970666) でも、異なるIDが同じ楽天会員に管理されることを確認した。前回の「登録IDの文字列が返却URLに見つからない」という結果だけでは誤帰属と断定できない。
+
+本人が[公式アカウントのID確認画面](https://webservice.rakuten.co.jp/account_affiliate_id/)で対象会員・アプリを確認し、登録Affiliate IDと非表示入力で照合する方式を実装した。値は保存せず、アプリとIDに結び付く確認記録をリポジトリ外に保存する。30日で失効し、ID変更時にも再確認する。この照合・実際の成果報酬確認はまだ実施していないため、**帰属の最終確認は未完了、本番反映・公開は保留**。
+
+実コードはAPI返却の楽天HTTPSアフィリエイトURLをそのまま利用し、商品コードからURLを推測しない。認証値が生成物に混入した場合も停止する。
+
+### 既存機能への影響・本番移行前の必要操作
+
+- カテゴリ拡張: 最新queries.jsonを毎回読む。9番目のカテゴリ追加を疑似応答で確認。既存拡張workflow、14日間隔、上限、状態JSONは変更していない。
+- 比較ページ: 既存生成・検証スクリプトを使用し、一時生成で確認。本番docsは変更していない。
+- 日次・週次: sourceProductsSha256を両編集JSONへ記録する必要がある。既存タスクの時刻とプロンプトを確認し、承認後に提示案へ更新する。新規タスクは追加しない。
+- note: Actionsが日曜の同じmainスナップショットから生成し、latest4ファイルとarchive2ファイルを通常pushする。既存投稿処理はmainからJSON・記事・画像を取得できる。投稿台帳・プロファイル・既存投稿処理は変更していない。
+- Windows: OneDrive外の個人用設定・実行領域、プロキシ、必要なら社内CA、GCMの対象リポジトリ限定認証、本人による帰属照合が必要。enabled=falseと--applyなしが既定。
+- 無人実行: 対話ユーザーの資格情報読取は成功。ログオフ・再起動・PASSWORDバッチログオンでの資格情報/GCM/プロキシは未検証。[Microsoftの仕様](https://learn.microsoft.com/en-us/windows/win32/api/taskschd/ne-taskschd-task_logon_type) に従い、S4Uを避け、同一ユーザーのPASSWORD方式を承認後に試す。今回はログオフ操作やタスク登録を行っていない。
+- 公開: 承認後にmainへ取り込み、Pages公開元をGitHub Actions、environmentをmain限定に設定し、WINDOWS_PIPELINE_ENABLED=trueを明示する必要がある。今回は設定を変更していない。
+- 旧Oracle: シェルはこの作業ブランチ上で停止する設計へ変更したが、VMや既存タスク自体は変更していない。復旧時は最新履歴を継承し、Linux用認証アダプターを別途検証する。旧切捨て処理をそのまま再開しない。
+
+### 残る課題とリスク
+
+1. 公式画面での本人によるAffiliate ID照合が未実施。未確認では適用・公開しない。確認記録は30日で失効するため更新管理が必要。
+2. ログオフ時の資格情報・Git認証と、実Pagesデプロイは未検証。承認後の試運転が必要。
+3. Actions scheduleは遅延・欠落し得る。商品/編集の鮮度違反時は従来サイトを維持し、次回を待つだけでなく実行結果を確認する。
+4. noteのGit保存とPagesデプロイは原子的ではない。Pages失敗でもmainのnoteだけ更新済みになる場合がある。既存07:10投稿タスクは有効化せず、移行確認と別の承認を待つ。
+5. Pages直前のmain確認から実デプロイまで微小な競合窓がある。完了済み日次編集の後に公開する設計と結果監視が必要。
+6. Git通信途絶時のpush成否は不明になり得る。強制pushや自動再試行をせず、リモートを確認する。
+7. 履歴・バックアップ・未採用世代を削除しないため容量は増える。電源断時の完全な耐久性はオフライン検証で保証しない。容量・失敗コード・残留ロックを監視する。
+8. カテゴリ件数の閾値、履歴の日付をUTCとする仕様、同日異価格停止、旧Oracle入口停止はPRで確認が必要。
+
+本番移行、main/developへのマージ、本番データ反映、タスク登録・変更、Pages設定変更、note投稿、ChatGPTタスク追加は実施していない。次はこのPRのレビューと、上記の本人操作・本番試験に対するユーザー承認を待つ。
