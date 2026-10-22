@@ -834,3 +834,50 @@ GitHub上の最新調査文書（文書用ブランチff40401）とDraft PR #1�
 コード上で発見した問題は修正したが、修正後の全カテゴリ定期実行・画面ロック/RDP切断・実Pagesデプロイ・外部note投稿バッチの受入れは未検証。本番移行は承認待ち。Actionsの遅延/欠落、note保存とPagesの非原子的な切替、デプロイ直前の微小な競合窓、バックアップ容量・同一ディスク故障も運用課題として残る。[Pagesの公式workflow要件](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)、[scheduleの公式仕様](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)を確認した。
 
 今回GitHubへ反映するのはfeature/windows-data-pipelineの修正と、この文書用ブランチの調査記録だけ。Draft PR #1はdevelop向けのDraftを維持。main/developへのpush・マージ、本番データ更新、Windows本番タスク登録・有効化、Pages/Repository Variables変更、本番公開、note投稿、ChatGPTタスク追加・変更は行っていない。
+
+## 2026-10-25初回運用の最終準備案（2026-10-22、未実施）
+
+PR #1を再確認: open/Draft/未マージ、head=92d02401934914b650d10ccd9ada67e29aad77fd、base=develop=40db906e79ba371e99d20406e662b0e89815ca97、mergeable=true。mainも40db906のまま。既存の147件CI成功と独立バックアップ復元成功を再利用し、全件テスト、楽天API通信、一般Web調査は追加していない。コード修正は不要。今回は既存記録の読取と準備案の提示・文書化だけ。
+
+### 10月25日05:15のカテゴリ拡張との関係
+
+カテゴリ拡張workflowはenabled=true、初回日10月25日、商品鮮度36時間以内を条件とし、WINDOWS_PIPELINE_ENABLEDとは独立している。公開workflowとは別のconcurrency groupで、mainへの通常pushを行い得る。
+
+現在の保存データを用い、decide関数を10月25日05:15 JSTとして読み取り専用で評価した結果はstale_product_data（追加なし）。API呼出し・ファイル変更なし。ただし、事前の商品更新やジョブ開始の遅延で06:10以降の新データを参照すれば、候補power-bankの追加判定へ変わり得る。追加前にcollectorがmainを取得していれば、push競合またはqueries/productsの世代不一致で安全停止するが、初回公開を妨げる可能性がある。
+
+初回はカテゴリ追加を重ねない運用を推奨。05:15ジョブの終了・変更なし・キュー残存なしを06:10前に確認し、未完了、追加あり、設定差分不明なら初回切替を止める。拡張workflowの一時無効化を選ぶ場合も別途承認して行い、今回は設定変更しない。新カテゴリ対応そのものは既存の動的取得と回帰結果を利用する。
+
+### 既存ChatGPTタスクへの最小変更案（未反映）
+
+登録済みタスク本文は今回読み出していないため、文字単位のdiffではなく、リポジトリ内の既存プロンプト案に基づく実行指示の置換案。事実・表現ルールを保持し、API取得、HTML/note生成、publish.sh、公開を指示する旧部分があれば削除する。新しいタスクは作らない。
+
+日次06:30:
+```text
+AGENTS.mdの編集ルールを維持。最新mainの同一コミットでdata/products.json、data/history.json、data/collection-status.json、config/queries.jsonを確認する。
+当日06:10 JST以降の商品、productsSha256、全カテゴリが一致する場合だけdata/editorial.jsonを更新する。不一致・取得失敗なら停止する。
+generatedAtは実編集時刻（06:30 JST以降）、sourceProductsSha256は同じ世代のcollection-status.jsonのproductsSha256を記録する。
+変更はこのJSONだけを通常commit・push。mainが参照コミットから進んだ場合は停止し、force push・自動再編集はしない。API取得・生成・公開は行わない。
+```
+
+週次・日曜06:40:
+```text
+AGENTS.mdの週次編集ルールを維持。最新mainの同一コミットでdata/products.json、data/history.json、data/editorial.json、data/collection-status.jsonを確認する。
+当日06:10以降の商品と06:30以降の日次編集が同じproductsSha256に対応する場合だけdata/note-weekly.jsonを更新する。不一致・未更新なら停止する。
+generatedAtは実編集時刻（06:40 JST以降かつ日次編集以降）、sourceProductsSha256は同じ商品世代、weekLabelは当週月曜〜日曜とする。対象カテゴリ・商品を固定しない。
+変更はこのJSONだけを通常commit・push。main先行更新時は停止し、force pushしない。記事・画像・ZIP・manifest生成は06:50 Actionsに任せ、投稿・公開は行わない。
+```
+
+### 承認後の実施順序・停止と切り戻し
+
+| 順序 | 実施内容 | 停止条件・切り戻し |
+| --- | --- | --- |
+| 事前1 | PRをレビュー完了後にdevelopへ取り込み、別途承認してdevelopをmainへリリース。有効化スイッチは無効のまま | 対象SHA/CI変更・想定外差分なら停止。データを含むmainのreset/force pushはしない |
+| 事前2 | 既存編集タスクの実行指示を承認後に更新。Windowsは同じユーザー・ログオン時限定・Python直接、初回10/25 06:10、二重起動禁止で無効登録 | 資格情報・有効な本人確認記録・GCM・常時起動条件が揃わなければ無効のまま。タスク本文は事前控えから戻す |
+| 事前3 | 承認後にPagesをActions公開、environmentをmain限定へ。WINDOWS_PIPELINE_ENABLEDはfalseのまま | 設定・権限の不備は有効化しない。旧Pages設定の復元は控えに従い別途承認 |
+| 当日05:15〜06:10前 | カテゴリ拡張の完了・変更なしを確認後、Windowsのenabled/--applyと初回タスクを承認どおり有効化 | 拡張が未完了/追加あり/不明なら停止。設定を曖昧にして初回取得を始めない |
+| 当日06:10→06:30→06:40 | 商品・履歴・statusの単一コミット、日次、週次を順に確認。取得は06:25まで、push開始は06:23:30まで | API/履歴/競合/編集失敗・ハッシュ不一致で公開を止める。新しい正常履歴は消さず、公開スイッチはfalseを維持 |
+| 当日06:40以降→06:50 | 同一商品世代の日次・週次を確認後だけWINDOWS_PIPELINE_ENABLED=true。06:50の生成・検証・note保存・Pages公開を監視 | 検証/競合/公開失敗はスイッチをfalseへ戻し、必要ならWindowsも停止。直前の正常サイトを維持。実行中処理の終了も確認し、note保存済みの可能性を調べる |
+
+停止時にOracleの旧取得を自動再開しない。公開後の問題は、最後の正常Pages成果物の再デプロイや旧設定への復元を別途承認して行い、価格履歴・投稿台帳・main全体を過去へ巻き戻さない。再試行は原因確認と承認後だけとし、古い編集内容の時刻・ハッシュを埋め合わせない。
+
+残作業はこれらの本番操作への承認と実施。Actionsの時刻遅延/欠落、定期実行での全カテゴリ取得、画面ロック/RDP切断、実Pages公開は未検証のまま。初回のnote実投稿は含めない。コード・本番データ・タスク・Pages・Variablesは今回変更せず、結果文書だけを従来の文書用ブランチに保存する。
