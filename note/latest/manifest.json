@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "site_id": "gadget",
+  "issue_key": "2026-W42",
+  "status": "ready",
+  "title": "今週のガジェット価格ウォッチ｜車載用品に値下がり候補",
+  "article_path": "article.md",
+  "cover_path": "article-cover.png",
+  "source_url": "https://noranamani.github.io/noranamani-gadget-deals/",
+  "generated_at": "2026-10-17T22:01:00+00:00",
+  "editorial_sha256": "b497f7dd47621b8fdd7cc654ba49038d78d925e234408433fdbde93f14ee440e",
+  "files_sha256": {
+    "article.md": "7c15b992f38433d600fdbc981a27e1d2afc488b6f0a2c8426332d3bcd98c5c07",
+    "article-cover.png": "68846a1aae5f4d2dbff2fdcef6bd05f36368192a1ac9e143e8b0b5cb38c658d8",
+    "note-post.zip": "24d113483ee76b5ecc0c363f21065d3b46452c291656983302a564e1fea7a593"
+  },
+  "source_binding": "legacy-preserved-unbound",
+  "legacy_source_commit": "62cc15dfb40d396dd083171db516a2c95a9c0126"
+}
