@@ -1,0 +1,90 @@
+name: Windows data daily publication
+on:
+  schedule:
+    - cron: '50 21 * * *' # 06:50 JST
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: gadget-production-publication
+  cancel-in-progress: false
+jobs:
+  prepare:
+    if: ${{ vars.WINDOWS_PIPELINE_ENABLED == 'true' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    outputs:
+      source_commit: ${{ steps.prepare.outputs.source_commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12'
+      - id: prepare
+        shell: bash
+        run: |
+          python -X utf8 scripts/publication_pipeline.py prepare --root "$GITHUB_WORKSPACE" --output "$RUNNER_TEMP/publication" --source-commit "$(git rev-parse HEAD)"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: validated-publication
+          path: ${{ runner.temp }}/publication/bundle
+          if-no-files-found: error
+          retention-days: 2
+  persist-note:
+    if: ${{ vars.WINDOWS_PIPELINE_ENABLED == 'true' && github.ref == 'refs/heads/main' }}
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      published_commit: ${{ steps.persist.outputs.published_commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.prepare.outputs.source_commit }}
+          fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: validated-publication
+          path: ${{ runner.temp }}/publication
+      - id: persist
+        env:
+          GADGET_PUBLICATION_ENABLED: '1'
+        run: python -X utf8 scripts/publication_pipeline.py persist-note --root "$GITHUB_WORKSPACE" --bundle "$RUNNER_TEMP/publication" --apply
+  deploy:
+    if: ${{ vars.WINDOWS_PIPELINE_ENABLED == 'true' && github.ref == 'refs/heads/main' }}
+    needs: [prepare, persist-note]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.persist-note.outputs.published_commit }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: validated-publication
+          path: ${{ runner.temp }}/publication
+      - env:
+          EXPECTED_MAIN: ${{ needs.persist-note.outputs.published_commit }}
+        run: python -X utf8 scripts/publication_pipeline.py verify-current --root "$GITHUB_WORKSPACE" --bundle "$RUNNER_TEMP/publication" --expected-main "$EXPECTED_MAIN"
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        with:
+          path: ${{ runner.temp }}/publication/docs
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
