@@ -3,3 +3,6 @@ __pycache__/
 .DS_Store
 .env
 *.log
+pipeline-local.json
+affiliate-proof.json
+pipeline-runtime/
