@@ -1072,3 +1072,65 @@ push後のmainを改めてfetchし、ef25262bであることを確認したう�
 Pages公開元、WINDOWS_PIPELINE_ENABLED、Windowsタスク設定は変更していない。実公開・設定切替は別途ユーザー承認が必要。10月25日の通常再開では当日の商品取得、日次編集、日曜週次編集の順と世代結合が揃った実結果を確認する。編集遅延、週次の不一致、商品鮮度超過、本人確認期限切れ、Git競合、成果物失効なら公開しない。
 
 楽天API追加要求0、商品/履歴更新0、Windowsタスク変更0、Pages設定/実公開0、公開Variable変更0、note投稿0。この記録は既存文書用ブランチfeature/rakuten-network-validation-docsへ追記する。文書の取り込み先はレビュー後のdevelopを想定し、今回はマージしない。
+
+## 2026-10-23 10月25日完全自動運用に向けた最終ハードニング
+
+### 修正前の問題と実装
+
+公開workflowは06:50 JSTの単一scheduleだけで、編集遅延/予定枠欠落からの補完、当日公開済み判定がなかった。日曜のnote保存後にPagesだけ失敗すると、再prepareで同週のnoteを再生成する余地があった。カテゴリ拡張開始日は初回Windows通常取得と同じ10月25日だった。mainの手順書/設定例には再発要因となるLOCALAPPDATA配置例も残っていた。
+
+作業ブランチhotfix/windows-publication-hardening（最新main ef25262bから分岐）で以下を実装した。今回はmain/developへ取り込まず、[Draft PR #3](https://github.com/noranamani/noranamani-gadget-deals/pull/3)でレビューする。main向けの運用修正であり、承認後はdevelopへの同じ修正の反映も検討する。自動マージしない。
+
+- windows-daily-publish.yml: 06:50＋07:15/07:45/08:15 JST。prepare前とdeploy前に公開ゲートを通し、upload後も成果物期限・最新main・実データ鮮度を最終確認する。
+- publication_gate.py: 当日の同workflow/mainの全attemptをActions APIで読み、Publish Pagesステップ成功済みなら再公開しない。未知/読取不能/送信成否不明は停止。古い日のworkflow再実行は拒否。最初の公開可能時刻は06:50で、既存の3時間・当日・編集順・商品ハッシュ条件を維持する。
+- publication_pipeline.py: 同週・同商品世代・同週次JSON・同本文/PNG/ZIP/archiveの保存済みnoteだけを再利用する。矛盾や同週archive上書きを拒否。差分なしなら新たなGitコミット/pushなし。
+- category-expansion.json/category_rollout.py/workflow: 初回を11月1日へ延期。enabled=true、14日間隔・品質条件・上限は維持。遅延apply/pushは日曜05:00〜06:00 JSTだけ、remote main一致、push90秒上限。
+- AGENTS/README/operations手順/設定例: 現行のログオン運用、AppData/OneDrive外の配置、承認後の設定順序、RDP/再起動/通知リスクを反映。
+- 既存テスト: 本番履歴が進むと固定時計の取得テストが未来履歴扱いで失敗する問題を修正。一時領域の取得用履歴だけを固定fixtureに分離し、未来履歴は引き続きAPI前に拒否するテストを追加した。本番ロジックの保護機能は緩和していない。
+
+実装コミット: [a742a8005eb6b1f2717bef06aaa22ed69249913e](https://github.com/noranamani/noranamani-gadget-deals/commit/a742a8005eb6b1f2717bef06aaa22ed69249913e)。
+fixture分離・CI重複起動防止の最新コミット: [3dd9bc0c06863d4711742a5649e2c37ae3dc3fbc](https://github.com/noranamani/noranamani-gadget-deals/commit/3dd9bc0c06863d4711742a5649e2c37ae3dc3fbc)。
+
+### 検証結果
+
+| 検証 | 結果 |
+| --- | --- |
+| 新規固定fixtureと既存回帰 | 最終CIはWindows/Ubuntuとも173件成功（既存147＋新規26）。[CI実行](https://github.com/noranamani/noranamani-gadget-deals/actions/runs/39882789679) |
+| 初回CIの失敗 | 10月21日固定時計と最新10月23日履歴の不整合を検出し、テストfixtureだけを修正。最終CIで解消 |
+| 日曜正常系・遅延復帰 | 正常系、週次07:20完了→07:45復帰を固定fixtureで確認 |
+| 日曜異常系 | 週次欠落/ハッシュ不一致、商品3時間超過、成果物31分失効、API状態読取失敗を拒否 |
+| 二重公開・note再保存 | 成功済みPagesはスキップ、同一noteは2回目コミットなし。同週の別編集/archive破損は停止 |
+| Pages送信失敗/取消 | 成否不明は停止し自動再送しない。実Pagesへの失敗注入は未実施 |
+| カテゴリ拡張 | 10月25日追加なし、11月1日の条件適合時は再開可能。06:05など遅延pushを拒否 |
+| Git競合・ロック | 既存のpush競合拒否・履歴保全テストと一時領域の二重ロック拒否を確認 |
+| YAML/Bash | 全6 workflow YAMLと、その時点の22 shell stepの構文検証成功 |
+| 実データprepare | 修正コミット3dd9bc0cのGit原本を一時展開し、10:14:23 JSTの実時計で成功。24成果物・20 HTML（全8カテゴリ/既存5比較ページ）のSHA-256検証成功 |
+| 保護対象 | sourceのdata/note/docs計43ファイルがprepare前後不変。履歴475商品・3,311記録不変。元商品時刻09:24:19と商品ハッシュ82dd2f04…a0cf25を維持 |
+| 実Actions履歴のゲート | GCM・社内プロキシ・TLSによる読み取りHTTP 200で、実応答の解析と当日未公開判定が成功。ローカル読取であり本番GITHUB_TOKEN/Pages E2Eとは区別 |
+| 実公開・note実投稿 | 未実施。禁止範囲を維持 |
+
+今回の実データ成果物は10:14:23 JSTから30分だけ有効。商品の3時間条件や日時を10月25日へ偽装していない。日曜試験の日付・価格・履歴の合成は明示的な一時fixture内だけで、本番には採用していない。
+
+### Windowsの実タスク経由診断
+
+本番タスクの定義は変更せず、同じ通常ユーザー/InteractiveToken・Python・開始フォルダーで、手動起動専用の一時診断タスクを作成した。終了0の後に削除。本番タスクを含む既存212件は前後の定義ハッシュが一致し、残存新規0。次回2026-10-25 06:10 JST、task enabled=true、local enabled=trueを確認した。
+
+3資格情報と本人確認記録（11月20日14:37 JSTまで）、プロキシ、TLS証明書/ホスト名検証、GCM非対話認証、認証付きGitHub読取HTTP 200/push権限が正常。配置8モジュールのハッシュ一致。Windows最終実体パスで設定が仮想化されていないこと、実行フォルダー一致を確認。ACL4箇所に通常ユーザー/SYSTEM/Administrators以外の書込主体なし。
+
+通信/子プロセスを遮断した区間で本番run_updateを実時計で呼び、現在の時間外起動を拒否。通信試行0・子プロセス試行0。別の一時領域で二重ロックを拒否し、本番の残存ロックなし。楽天API要求0、GitHub本番書込0。
+
+AC時スリープ/休止は無効、バッテリー時スリープ600秒。Windows Updateの現在の再起動要求なし。ただし、ログオン中の自動再起動禁止やRDP切断後ログオフ制限は参照したローカルポリシーでは明示されていなかった。将来の更新・管理ポリシー・切断中の実動作は保証できない。PCはAC接続・ログオン維持が必要。再起動/ログオフ後は本人の再ログオンが必要で、遅延取得はしない。設定変更・再起動・ロック操作は行っていない。
+
+### GitHub実設定・残作業
+
+読み取りAPIでPagesはbuild_type=legacy、main/docsの正常サイトが存在。WINDOWS_PIPELINE_ENABLEDは404（未登録）。Actionsはenabled=true/allowed_actions=all、workflowはactive。github-pages environmentはmainのみのbranch policy、必須reviewer/待機時間なし。既定GITHUB_TOKENはread、PR承認権限なし。main保護設定は404、適用rulesは空だった。今回これらを変更していない。
+
+承認後の操作順はPR #3のレビュー/取り込み判断 → 既存日曜06:40編集タスクの実設定確認 → Settings/Pages/SourceをGitHub Actionsへ → environmentのmain限定を維持 → 最後にSettings/Secrets and variables/Actions/VariablesでWINDOWS_PIPELINE_ENABLED=trueを登録。広い既定write権限は不要。note保存jobだけcontents write、deployだけpages/id-token writeとし、公開判定にactions readを指定済み。main取り込み後も、実設定完了や10月25日の実運用成功を自動的に意味しない。
+
+既存06:30日次は本人の更新済み申告を引き継ぐ。週次の登録済みプロンプト/実行可否はCodexから確定できないため、本人がcodex/weekly-note-editorial-prompt.mdの入力条件と照合する。新規ChatGPTタスク・編集タスク変更は行っていない。通知はGitHub Settings/Notifications/ActionsでEmail/Web・失敗時を本人が設定し、cronの最終変更/再有効化actorが受信対象になる点を確認する。
+
+週次が遅れても、当日の実データ・編集・3時間条件が成立すれば補完枠で自動復帰する。main競合・鮮度超過・商品ハッシュ不一致・成果物失効なら停止。Pages送信成否不明は二重公開回避を優先して停止し、サーバーの実結果確認後に復旧を別途承認する。GitHub schedule全枠欠落は同じworkflowだけでは検出できず、独立監視は未設置。ChatGPT側の実行保証もない。
+
+既存サイト経路にOracle VM/SSH依存はなく、旧シェル3本はexit 3で停止する。一方note/CLOUD_ROADMAP.md・DRAFT_FIRST_PLAN.mdには未実装のOracle投稿基盤の将来計画が残る。外部note投稿バッチv0.3のソース/ホスト/認証/実投稿台帳は本リポジトリから確認できず、note実投稿は別の未検証リスク。共通manifestとsite_id/issue_key/記事SHA-256の重複防止契約は維持し、過去記事・投稿台帳を変更していない。
+
+**状態の区別**: コード実装とCI/事前検証は完了（PR未取り込み）。GitHub本番設定は未完了。本番の全自動実行・Pages実公開成功は未確認。上記承認と設定が済まない限り「10月25日に操作なしで全段階完了できる」とは報告しない。
