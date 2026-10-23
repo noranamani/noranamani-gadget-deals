@@ -2,7 +2,7 @@
 """Expand the site's ROOT search categories conservatively.
 
 This program NEVER calls Rakuten or note. It uses only products previously
-retrieved by the fixed-IP Oracle VM. Only the scheduled GitHub Actions job
+retrieved by the registered-IP Windows collector. Only the scheduled GitHub Actions job
 may apply additions; manual/PR runs are read-only checks.
 
 The existing conditional comparison pages in config/comparisons.json are
@@ -16,7 +16,7 @@ import json
 import os
 import re
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -173,6 +173,12 @@ def decide(config: dict, state: dict, queries: list, products: dict, *, now: dat
     return _result("candidate_pool_exhausted")
 
 
+def require_apply_window(now: datetime) -> None:
+    local = now.astimezone(JST)
+    if local.weekday() != 6 or not time(5, 0) <= local.time() <= time(6, 0):
+        raise ValueError('CATEGORY_ROLLOUT_OUTSIDE_SAFE_WINDOW')
+
+
 def apply(root: Path, *, now: datetime, allow_write: bool) -> dict:
     config = read_json(root, CONFIG)
     state = read_json(root, STATE)
@@ -183,6 +189,7 @@ def apply(root: Path, *, now: datetime, allow_write: bool) -> dict:
         return plan
     if os.environ.get("CATEGORY_ROLLOUT_SCHEDULED") != "1":
         raise ValueError("SCHEDULED_JOB_CONSENT_REQUIRED")
+    require_apply_window(now)
     new_row = next(c for c in config["candidates"] if c["id"] == plan["candidate_id"])
     new_queries = [*queries, new_row]
     new_state = {"schema_version": 1, "history": [
@@ -198,15 +205,20 @@ def apply(root: Path, *, now: datetime, allow_write: bool) -> dict:
                               encoding="utf-8")
     return {**plan, "action": "added_to_queries",
             "total_categories": len(new_queries),
-            "note": "Data will be fetched by the fixed-IP Oracle VM; never by this action."}
+            "note": "Data will be fetched by the Windows collector; never by this action."}
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="read only, default")
     parser.add_argument("--apply", action="store_true", help="scheduled job only")
+    parser.add_argument("--assert-apply-window", action="store_true", help="check immediately before Git push")
     parser.add_argument("--root", type=Path, default=ROOT)
     args = parser.parse_args()
+    if args.assert_apply_window:
+        require_apply_window(datetime.now(timezone.utc))
+        print('CATEGORY_ROLLOUT_WINDOW_OK')
+        return
     if args.apply and args.check:
         parser.error("choose only one mode")
     result = apply(args.root, now=datetime.now(timezone.utc), allow_write=args.apply)

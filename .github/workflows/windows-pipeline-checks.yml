@@ -1,7 +1,7 @@
 name: Windows pipeline offline checks
 on:
   push:
-    branches: [feature/windows-data-pipeline]
+    branches: [feature/windows-data-pipeline, hotfix/windows-publication-hardening]
   pull_request:
     branches: [develop, main]
 permissions:

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "enabled": true,
-  "first_addition_jst": "2026-10-25",
+  "first_addition_jst": "2026-11-01",
   "minimum_days_between_additions": 14,
   "max_total_categories": 16,
   "max_additions_per_run": 1,

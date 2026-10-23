@@ -1,6 +1,6 @@
-# Windows商品取得・Actions公開の移行手順（承認前）
+# Windows商品取得・Actions公開の移行手順
 
-このブランチはレビュー用。main / developへのマージ、運用タスク登録、Pages設定変更は未実施。既存の実行環境・商品データ・投稿状態は変更していない。
+2026-10-23時点: Windows取得コードはmain反映済みで09:24 JSTの取得・履歴保全・pushに成功。通常06:10タスクは10月25日から有効。Pagesはまだmain/docs方式で、WINDOWS_PIPELINE_ENABLEDは未登録。以下の公開ハードニングはレビュー用で、本番設定変更・実公開・note投稿は未実施。実行成功と実装/設定完了を区別する。
 
 ## 構成
 
@@ -27,7 +27,7 @@ Gitにはこの3ファイルだけを単一コミットとして作成する。�
 
 ## 本番移行後の個人用設定（今回実行しない）
 
-Python 3.12とGit for Windowsを使用する。コード配置と実行状態はOneDrive同期外、例としてLOCALAPPDATA配下に分離する。タスクの実行ユーザーだけがアクセスできるACLを確認し、コード・CA・設定への第三者の書込を許可しない。
+Python 3.12とGit for Windowsを使用する。コード配置と実行状態はOneDrive/AppData外の%USERPROFILE%\\GadgetPipeline\\windows-productionに分離する。LOCALAPPDATAはCodexのMSIX仮想化によりタスクから実体が見えなかったため再利用しない。タスクの実行ユーザー、SYSTEM、AdministratorsだけがアクセスできるACLを確認し、コード・CA・設定への第三者の書込を許可しない。
 
 設定例はoperations/windows-pipeline.example.json。これをリポジトリ外のpipeline-local.jsonへコピーし、実際のプロキシURL等を**ローカルだけ**で設定する。プロキシ認証情報はURLに含められない。ca_bundleは不要ならnull。Gitは同じプロキシとCAで証明書検証を有効にする。Pythonのローカル除外は従来のローカル名・ループバック・指定プライベートサブネットに対応し、外部NO_PROXY指定があれば直接通信せず停止する。
 
@@ -40,9 +40,12 @@ Windows汎用資格情報の登録先は次の3件。同じ通常ユーザーで
 以下のコマンドは移行承認後の手順例。キーやIDの値は引数へ渡さない。
 
 ```powershell
-& 'C:\Python312\python.exe' -X utf8 'C:\GadgetPipeline\scripts\windows_credentials.py' --check
-& 'C:\Python312\python.exe' -X utf8 'C:\GadgetPipeline\scripts\windows_credentials.py' --verify-affiliate "$env:LOCALAPPDATA\GadgetPipeline\affiliate-proof.json"
-& 'C:\Python312\python.exe' -X utf8 'C:\GadgetPipeline\scripts\run_windows_update.py' --config "$env:LOCALAPPDATA\GadgetPipeline\pipeline-local.json"
+$pipelineHome = Join-Path $env:USERPROFILE 'GadgetPipeline\windows-production'
+$source = Get-Content (Join-Path $pipelineHome 'code-source.json') -Raw | ConvertFrom-Json
+$pipelineScripts = Join-Path $pipelineHome ('code\' + $source.sourceCommit + '\scripts')
+& 'C:\Python312\python.exe' -X utf8 (Join-Path $pipelineScripts 'windows_credentials.py') --check
+& 'C:\Python312\python.exe' -X utf8 (Join-Path $pipelineScripts 'windows_credentials.py') --verify-affiliate (Join-Path $pipelineHome 'state\affiliate-proof.json')
+& 'C:\Python312\python.exe' -X utf8 (Join-Path $pipelineScripts 'run_windows_update.py') --config (Join-Path $pipelineHome 'pipeline-local.json')
 ```
 
 最後のコマンドはプレビューだが**実APIを最大2×カテゴリ数回呼ぶ**。今回のオフラインテストの代わりに繰り返し実行しない。--applyなしではコミット作成・pushはしない。適用にはローカルenabled=trueと--applyの両方が必要。
@@ -67,7 +70,7 @@ Access Keyは全位置で拒否する。Application ID/Affiliate IDも上記以�
 
 API応答本文・URL・登録値はログへ出さない。エラーはコード側の固定ラベル（資格情報の種類・検査処理・既知のフィールド名）だけとする。汎用秘密値検査は維持する。今回の修正・文書に実値や実URLを追加しない。将来の承認済み商品更新では、公開用の正規追跡URLを商品リンクとして保持する設計なので、その公開範囲もレビュー対象とする。
 
-### タスクスケジューラ（未登録）
+### タスクスケジューラ（登録済み・ログオン中限定）
 
 実行プログラム: Pythonの絶対パス。引数: -X utf8 とラッパー・個人用設定の絶対パス、承認後のみ--apply。06:10 JSTを想定する。通常ユーザーと同じアカウントで「ユーザーがログオンしているときのみ実行する」（InteractiveToken）を選ぶ。管理者昇格は通常不要。PASSWORD方式・S4U方式・パスワード入力は不要。PC常時起動・当該ユーザーのログイン維持を運用条件とする。
 
@@ -89,7 +92,7 @@ Git Credential Managerの同じユーザーの資格情報を使用する。必�
 
 ## Actions公開（初期無効）
 
-windows-daily-publish.ymlは毎日21:50 UTCに予定されるが、mainでRepository Variable WINDOWS_PIPELINE_ENABLED=trueの場合だけ動作する。今回このVariable、Pages設定、environmentは変更していない。feature/developでは実デプロイしない。
+windows-daily-publish.ymlは毎日06:50 JSTと補完07:15/07:45/08:15 JSTに予定されるが、mainでRepository Variable WINDOWS_PIPELINE_ENABLED=trueの場合だけ動作する。今回このVariable、Pages設定、environmentは変更していない。作業ブランチ/developでは実デプロイしない。
 
 準備jobはContents read、note保存jobだけContents write、デプロイjobだけContents read / Pages write / ID token writeを持つ。サードパーティActionは使わず公式ActionをコミットSHAで固定した。楽天資格情報・社内CA・社内プロキシはActionsへ渡さない。オフラインCIはWindows/Ubuntu、Contents readだけで動く。
 
@@ -115,7 +118,7 @@ python -X utf8 -m unittest discover -s scripts -p "test_*.py" -v
 
 ## 初回移行の互換性と順序（承認後だけ実施）
 
-現行mainにはcollection-status.json、日次/週次のsourceProductsSha256、note/latest/manifest.jsonがない。旧JSONへ現在のハッシュや新しいgeneratedAtを機械的に埋めて整合したように扱ってはならない。取得・編集が成功して初めて新形式を採用する。未更新なら公開を停止し、直前の公開サイトを維持する。
+移行当初はcollection-status.json、日次/週次のsourceProductsSha256、note/latest/manifest.jsonがなかった。10月23日に取得世代、対応する日次編集、平日用の旧note manifestまでmain反映済み。週次は10月25日の実編集が必要。旧JSONへ現在のハッシュや新しいgeneratedAtを機械的に埋めて整合したように扱ってはならない。未更新なら公開を停止し、直前の公開サイトを維持する。
 
 ### 推奨: 日曜日から開始
 
@@ -132,7 +135,7 @@ python -X utf8 -m unittest discover -s scripts -p "test_*.py" -v
 ```powershell
 # 移行承認後の例。現在の最新mainを置いた専用checkoutを指定する。
 $sourceCommit = git -C 'C:\GadgetPipeline\checkout' rev-parse HEAD
-& 'C:\Python312\python.exe' -X utf8 'C:\GadgetPipeline\scripts\prepare_legacy_note.py' --root 'C:\GadgetPipeline\checkout' --source-commit $sourceCommit --output "$env:LOCALAPPDATA\GadgetPipeline\legacy-note-manifest.json"
+& 'C:\Python312\python.exe' -X utf8 'C:\GadgetPipeline\scripts\prepare_legacy_note.py' --root 'C:\GadgetPipeline\checkout' --source-commit $sourceCommit --output "$env:USERPROFILE\GadgetPipeline\legacy-note-manifest.json"
 ```
 
 このコマンドはリポジトリ外へmanifestを準備するだけで、Gitへの書込み・push・投稿・公開は行わない。入力4ファイルが指定コミットと一致することをGitフィルター込みで確認し、Git archiveで展開した原本のハッシュを記録する。WindowsのCRLFとGitのLFを混同しない。ZIPと単体Markdownの比較だけはCRLF/LF同値を認め、原本のファイルとZIPはそれぞれ変更せず別々にハッシュで固定する。画像は完全一致を要求する。
@@ -160,3 +163,51 @@ manifestはsource_binding=legacy-preserved-unbound、元コミット、元週次
 停止はWindowsタスクと個人用enabled、ActionsのWINDOWS_PIPELINE_ENABLEDを無効にする。実行中処理の終了を確認する。サイトは直前の成功デプロイを維持し、データ・履歴・投稿台帳を削除しない。
 
 旧Oracle用シェル3本はこのコードでは誤実行防止のため即時停止する。旧fetch_rakuten.pyの引数なし実行も停止する。Oracleが復旧しても古い120日切捨て・破損時初期化の取得処理をそのまま再開しない。最新mainの履歴を取得し、この履歴保全ロジックを使うLinux用認証アダプターを別途実装・検証してから、取得元だけOracleへ戻す。Actionsは維持できる。完全な旧方式への切り戻しは別途Pages設定と生成処理の検証が必要。過去コミットへリポジトリ全体をreset/force pushして履歴を巻き戻してはならない。
+
+## 2026-10-25向け公開ハードニング（レビュー後にmain反映）
+
+### 遅延・欠落・再実行
+
+06:50、07:15、07:45、08:15 JSTの各checkは最新mainを読む。06:50より早い実行を拒否し、商品3時間、当日06:10以降、日次06:30以降、日曜週次06:40以降、編集順序・全カテゴリ・ハッシュ結合を維持する。前の枠で週次が未完成なら失敗し、例えば07:20に正規編集が完了した場合は07:45枠で新たにprepareできる。編集の生成時刻を遡及・補完しない。
+
+publication_gate.pyはActions APIを読み取り、当日mainの同じworkflowの全attemptのdeploy jobにあるPublish Pagesステップを確認する。成功済みならその日の再公開をスキップする。未試行なら公開候補とし、API読取不可・不正・上限超過は停止する。古い日のworkflowの再実行は拒否し、当日のRun workflowを使用する。workflow全体のconcurrencyで直列化し、deploy直前にも再照合する。
+
+失敗・取消・進行中のPages送信は、サーバー側だけ成功した可能性を排除できないためPUBLICATION_DEPLOYMENT_UNCERTAINで停止する。通信結果不明時の自動再送はしない。API送信前のprepare/検証失敗は補完枠で復帰可能。送信失敗時はPages/Environmentの実結果を確認し、成功済みなら再公開しない。失敗が確定し、当日・3時間以内なら、個別承認した復旧を別途行う。成功履歴や失敗ログの削除で検知を迂回しない。
+
+日曜にnote保存後Pagesが失敗した場合、次のprepareは同じ週・商品ハッシュ・週次JSONハッシュ・本文/PNG/ZIP・archiveの一致を要求して既存セットをそのまま使う。単一コミットが不要ならpushもしない。同週の既存記事を別世代で上書きせず、矛盾は停止する。平日は旧noteを再生成しない。note保存とPagesは原子的ではないため、noteのGit保存をサイト公開成功・note実投稿成功とは扱わない。
+
+### 初回カテゴリ拡張
+
+config/category-expansion.jsonのfirst_addition_jstだけを2026-11-01へ延期する。enabled=true、14日間隔、上限16、既存カテゴリ収集状況の品質条件は維持する。10月25日は追加なし。以後も遅延したapply/pushは日曜05:00〜06:00 JST以外で停止し、push前にremote mainが取得元と同じことを確認する。06:10の商品取得と遅延拡張を競合させない。通常の非force pushで競合を拒否する。
+
+### 失敗検知・通知の限界
+
+公開workflowのreport jobはprepare/note/deployの結果をJob Summaryと固定エラーで示し、失敗を成功として扱わない。Windows取得またはChatGPT編集の欠落・遅延も厳格な世代検査で検知する。GitHubアカウントのSettings → Notifications → ActionsでEmail/Webおよび失敗時のみの通知を選ぶ。scheduled workflowの通知先は最初の作成者、または最後にcronを変更/再有効化したユーザーとなるため、今回のcron変更を取り込む本人が通知の受信対象とメール/アプリ設定を確認する。リポジトリのWatchだけで受信できるとは仮定しない。[GitHub公式の通知仕様](https://docs.github.com/en/actions/concepts/workflows-and-actions/notifications-for-workflow-runs)。こちらからメール等の外部送信・新しいChatGPTタスク作成は行わない。
+
+GitHubのschedule自体が全枠欠落した場合、その同じworkflowだけでは検知できない。独立監視の設置は別途承認・設計が必要。ChatGPT側の06:30日次/日曜06:40週次の実行はCodexから保証できず、登録済み週次タスクの実設定も本検証からは確定できない。既存タスクの入力条件をcodex/weekly-note-editorial-prompt.mdと照合する。既存日次は本人の更新済み申告を引き継ぐ。
+
+### Windowsの事前診断（10月23日）
+
+同じ通常ユーザー/InteractiveTokenの一時診断タスクを手動起動し終了0、直後に削除した。本番タスクは変更していない。資格情報3件、本人確認の30日期限（11月20日14:37 JSTまで）、明示プロキシ、証明書/ホスト名検証、GCM非対話認証、認証付きGitHub読取HTTP 200とpush権限を確認した。
+
+通信・子プロセスを遮断した区間で本番run_updateを実時計で呼び、時間外ガードで停止した。通信試行0・子プロセス試行0、楽天API要求0。排他ロックの二重取得を一時領域で拒否し、本番の残存ロックなし。配置8モジュールのハッシュと、通常ユーザーから開いた設定ファイルのWindows最終実体パスが論理パスと一致し、AppData仮想化の再発なし。
+
+次回は2026-10-25 06:10 JST、タスクenabled=true・ローカルenabled=true、通常ユーザーのログオン中のみ、Python直接実行、IgnoreNew、自動再試行0、遅延実行なし。既存212件の定義を前後比較し変更0、残存の新規タスク0。
+
+AC時のスリープ/休止タイマーは0（無効）、バッテリー時のスリープは600秒。更新による再起動要求は検出されなかったが、ログオン中の自動再起動を禁止する明示ポリシーは未設定だった。RDP切断後の自動ログオフ制限も参照したローカルポリシーでは未設定。RDP切断中・画面ロック中の実動作、ドメイン/管理ポリシー、将来の更新再起動まで保証しない。AC給電・ユーザーログオン維持・予定時刻前後の更新再起動回避が必要。ログオフ/再起動でセッションを失った場合は本人の再ログオンが必要で、追いかけ取得は行わない。電源/Windows Update/RDP設定は変更していない。
+
+### GitHub本番設定と承認後の順序
+
+10月23日のAPI参照では、Pages build_type=legacy（main/docs）、公開Variableは404（未登録）、Actions enabled=true、workflow既定token権限read。github-pages environmentはcustom branch policyでmainだけを許可、必須reviewer/待機時間なし。workflowはactive。今回すべて読み取りのみ。
+
+1. hotfix/windows-publication-hardening → mainのPR差分とWindows/Ubuntu CIを確認し、ユーザーがmain取り込みを承認する。developへも同じ修正を反映する計画を維持するが自動マージしない。価格・履歴・過去noteに差分がないことを再確認する。
+2. 既存週次ChatGPTタスクの06:40 JSTと世代結合ルールを本人が確認する。新しいタスクは作らない。
+3. Repository Settings → Pages → Build and deployment → SourceをGitHub Actionsへ変更する。既存公開サイトを削除しない。
+4. Settings → Environments → github-pages → Deployment branches and tagsをSelected branches and tagsのmainのみで維持する。無人実行のためRequired reviewers/Wait timerがないことを確認する（現在は適合）。
+5. Settings → Actions → GeneralでActionsを許可する（現在は適合）。Workflow permissionsの既定Read repository contentsは変更不要。jobごとにprepareはcontents/actions read、note保存はcontents writeだけ、deployはcontents/actions read・pages write・id-token writeを指定する。広い既定writeやPR承認権限は不要。
+6. 最後にSettings → Secrets and variables → Actions → Variables → New repository variableでWINDOWS_PIPELINE_ENABLED=trueを登録する。承認前には作成しない。GitHub Actionsへの切替と有効化は実公開を可能にするため、コードレビューとは別の明示承認が必要。
+7. 当日のWindows取得→日次→週次→公開の成功を実際の結果で確認する。prepareの成功やCIを本番公開成功と扱わない。
+
+note.com実投稿は含まない。既存クラウド投稿バッチはmainの共通manifest schema_version=1、site_id/issue_key/記事SHA-256の台帳で重複を防ぐ設計だが、外部バッチの実環境・認証・停止状態・実台帳との受入れは未検証。note/queue-state.jsonとnote_draft_ledger.pyは別のローカル補助であり、公開済み台帳の実在確認を代替しない。クラウドの既存投稿処理がGit保存だけで投稿を開始する設定なら、遅延復帰と競合し得る。本人が既存クラウド投稿を停止状態に維持したことを確認するまで、投稿を含む完全自動運用は承認しない。サイト公開と外部note投稿の残リスクは分ける。
+
+停止時は未公開の成果物を捨て、旧正常サイト・履歴・投稿台帳を保持する。WINDOWS_PIPELINE_ENABLEDの無効化は公開停止のための別途承認操作。復旧は本来の生成元/時刻のまま再検証し、データや成功履歴を巻き戻さない。旧Oracleシェル3本はexit 3のままで、現行Windows/ActionsはVMへ接続しない。外部クラウド投稿バッチ自体のホストがOracleかどうかはこのリポジトリから確定できない。

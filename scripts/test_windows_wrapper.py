@@ -75,7 +75,9 @@ class WorkflowTests(unittest.TestCase):
     def test_production_workflow_is_main_only_and_opt_in(self):
         text=(ROOT/'.github/workflows/windows-daily-publish.yml').read_text(encoding='utf-8')
         self.assertIn("cron: '50 21 * * *'",text)
-        self.assertEqual(text.count("vars.WINDOWS_PIPELINE_ENABLED == 'true' && github.ref == 'refs/heads/main'"),3)
+        for job in ('prepare', 'persist-note', 'deploy'):
+            block = text.split('  ' + job + ':\n', 1)[1].split('    runs-on:', 1)[0]
+            self.assertIn("vars.WINDOWS_PIPELINE_ENABLED == 'true' && github.ref == 'refs/heads/main'", block)
         self.assertEqual(text.count('contents: write'),1)
         self.assertEqual(text.count('pages: write'),1)
         self.assertEqual(text.count('id-token: write'),1)

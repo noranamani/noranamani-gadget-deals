@@ -10,8 +10,8 @@ on:
       - '.github/workflows/category-expansion.yml'
   schedule:
     # Sunday 05:15 JST = Saturday 20:15 UTC.
-    # Earliest addition 2026-10-25. Max 1 category per 14 days.
-    # This finishes BEFORE the Oracle 06:10 JST fixed-IP data fetch.
+    # Earliest addition 2026-11-01: skip the first Windows migration Sunday.
+    # Finish before the Windows 06:10 JST registered-IP collector.
     - cron: '15 20 * * 6'
 
 permissions:
@@ -23,6 +23,7 @@ concurrency:
 
 jobs:
   validate-and-rollout:
+    if: github.ref == 'refs/heads/main' || github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -40,12 +41,12 @@ jobs:
       - name: Show dry-run decision (NO Rakuten API calls)
         run: python scripts/category_rollout.py --check
       - name: Add at most ONE vetted root category on scheduled Sundays
-        if: github.event_name == 'schedule'
+        if: github.event_name == 'schedule' && github.ref == 'refs/heads/main'
         env:
           CATEGORY_ROLLOUT_SCHEDULED: '1'
         run: python scripts/category_rollout.py --apply
       - name: Validate category JSON and persist both category config and rollout journal
-        if: github.event_name == 'schedule'
+        if: github.event_name == 'schedule' && github.ref == 'refs/heads/main'
         run: |
           set -eu
           python -m json.tool config/queries.json >/dev/null
@@ -56,15 +57,19 @@ jobs:
           if git diff --cached --quiet; then
             echo 'No new category this week (cooldown, insufficient products or limit).'
           else
+            # A delayed Sunday job must not change queries after collection starts.
+            python scripts/category_rollout.py --assert-apply-window
+            test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$(git rev-parse HEAD)"
+            python scripts/category_rollout.py --assert-apply-window
             git config user.name 'gadget-category-bot'
             git config user.email 'gadget-category-bot@users.noreply.github.com'
             git commit -m 'feat: gradually add one vetted gadget product category'
-            git push origin HEAD:main
+            timeout 90s git push origin HEAD:main
           fi
       - name: Operational note
         if: always()
         run: |
           echo '### Gradual root category expansion' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Max one category per 14 days, earliest 2026-10-25, up to 16 total categories.' >> "$GITHUB_STEP_SUMMARY"
-          echo 'No Rakuten API calls; Oracle fixed-IP fetch will pick up approved queries at 06:10 JST.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Max one category per 14 days, earliest 2026-11-01, up to 16 total categories.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'No Rakuten API calls; Windows collector reads approved queries at 06:10 JST.' >> "$GITHUB_STEP_SUMMARY"
           echo 'A sparse/uncollected prior category pauses future additions instead of expanding blindly.' >> "$GITHUB_STEP_SUMMARY"
