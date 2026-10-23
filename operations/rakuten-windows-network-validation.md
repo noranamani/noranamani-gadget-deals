@@ -1013,3 +1013,62 @@ operations/windows-migration.mdとwindows-pipeline.example.jsonの修正案を�
 今回のUTC日付と10月24日06:10 JSTのUTC日付がともに10月23日となるため、ユーザーは同日価格競合を避けて**10月25日06:10 JSTからの通常再開**を選択した。成功確認後に開始日を25日へ設定し、タスクとローカルenabledを有効化。次回実行は**2026-10-25 06:10:00 JST**、以後毎日。同じ通常ユーザーのログオン中のみ、IgnoreNew、自動再試行なし、遅延実行なし。対象以外の211件は不変で、新規タスク0。
 
 Pages設定、WINDOWS_PIPELINE_ENABLED、既存ChatGPTタスク、note投稿は変更していない。今回のE2E成功を当日06:10の日次運用・編集・公開成功とは扱わない。次回の本番時刻での自動起動、RDP切断中の実行、編集・Pages公開はそれぞれの実結果を確認する。Oracle停止維持、資格情報/本人確認期限、Git競合、少数取得、同日価格矛盾、残存ロック、時刻超過は引き続き停止条件とする。
+
+## 2026-10-23 日次編集の世代更新とPages成果物のローカルprepare
+
+### 対象世代・鮮度・編集前の状態
+
+楽天APIは再実行せず、最新main aaf984b6bdebf6a725bee702510898c762696238を取得した。Git archiveの全ファイルをGit blobと照合し、CRLF変換のない原本バイトからハッシュを計算した。collection-statusに記録されたproducts/history/queries/site設定の各ハッシュ、取得日時、カテゴリ順を確認した。取得時刻は2026-10-23 09:24:19.107038 JST、全8カテゴリ各18件（144掲載枠、143ユニーク商品）、履歴475商品・3,311記録。
+
+| 対象 | Git原本SHA-256 |
+| --- | --- |
+| data/products.json | 82dd2f0491283c00e59338d19debd0f1ac64d77b06858b57b18b066d49a0cf25 |
+| data/history.json | c58512682cb1c7c839dac5007c5d5de0dec2ea9db82be068392c10a5953ee163 |
+| data/collection-status.json | 312db071d32f81cb560834edc9293855b2becf4afa29c5a805ec95bdc931b0cd |
+| config/queries.json | d2810371919a8bf7f5cfa1afc8f705ef3d788de420a9361d4b014e025d00fb8a |
+| config/site.json | 7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698 |
+
+旧editorialのgeneratedAtは2026-10-19T21:42:00.455Z（10月20日06:42 JST）で、sourceProductsSha256もなく、今回の商品世代には使用できなかった。
+
+### 日次編集・mainへの限定反映
+
+AGENTS.mdと既存の日次編集ルールを使用し、価格・レビュー件数・商品名・送料項目・保存履歴だけを根拠に全カテゴリの編集を作成した。generatedAtは実編集時刻2026-10-23T00:45:21.720979+00:00（09:45:21 JST）、sourceProductsSha256は上記商品ハッシュを記録した。公開前検証と秘密情報検査を通過した。
+
+featuredDealsは車載充電器と車載ホルダーの2件。いずれも保存履歴の基準価格より低い水準を維持する候補で、直前の保存価格と同額であり、新たな最安更新とは記載していない。市場全体の最安値・クーポン適用後の価格・未確認の性能は断定していない。
+
+| カテゴリ | 編集結果・注意点 |
+| --- | --- |
+| usb-charger | 1,000円・レビュー727件を比較軸にし、出力選択肢と送料項目の不一致を明示 |
+| wireless-charger | 1,999円・レビュー1,506件を比較軸にし、AC充電器の混在・選択条件に注意 |
+| microsd | 商品名64GBの1,980円・レビュー307件を選び、容量選択式との誤比較を防止 |
+| car-charger | 1,299円・レビュー1,355件を比較軸にし、別商品の履歴上の値下がり候補はレビュー11件と明示 |
+| car-phone-holder | 1,550円・レビュー97件の履歴基準より低い水準を説明。新規最安更新と扱わない |
+| carplay-android-auto | 2,990円・レビュー143件を比較軸にし、少数レビュー・車種適合の不確実性を明示 |
+| dashcam | 6,580円・レビュー255件を比較軸にし、レビュー1件の商品と平均点だけで比べない |
+| mobile-router | 端末のみ3,000円・レビュー45件。ケース/追加チャージと分離し、履歴4件・基準価格なしを明示 |
+
+ユーザーの今回の明示承認に従い、通常の開発ブランチ運用の例外として、競合確認付きの単一親コミットをmainへ非force pushした。変更はdata/editorial.jsonの1ファイルだけ。
+
+日次編集コミット: [ef25262bc8353194fac2396e656e8637efa93c98](https://github.com/noranamani/noranamani-gadget-deals/commit/ef25262bc8353194fac2396e656e8637efa93c98)（親aaf984b）。push前後にremote mainを確認し、保護対象の差分なしを検証した。アプリコード変更・新規PRはない。
+
+### 最新mainのprepare結果
+
+push後のmainを改めてfetchし、ef25262bであることを確認したうえで、同コミットのpublication_pipeline.py prepareを、OneDrive/AppData仮想化の影響を受けないリポジトリ外の一時領域で実行した。
+
+- prepare: 終了0。実準備時刻09:48:14.553237 JST。
+- build_site.py、validate.py、平日のcheck_note_bundle.py: すべて成功。
+- 成果物は24ファイル（publication-manifest.json自体を除く）。HTML20件に全8カテゴリ・既存5比較ページを含む。
+- verify_bundle: 09:48:43 JSTに全ファイル集合・SHA-256・30分期限を検証し成功。商品取得後24.41分で3時間条件内。
+- 平日のためincludeNote=false、対象週末2026-10-18。既存note記事・画像・ZIP・manifestと週次編集JSONを再生成せずに再利用した。
+- 取得前後のGit原本ではeditorial以外の全ファイルが不変。products/history/status/queries/週次編集/旧note4ファイルはprepare作業コピーでもバイト一致。
+- GitHub mainが編集コミットのままであることを最終検証した。履歴475商品・3,311記録に変更なし。
+
+エラーは発生せず、安全条件の緩和・コード修正・147件の全件テスト再実行は不要だった。今回の検証は日次編集・ローカル生成の成功であり、06:10/06:30/06:50の定刻運用やPages実公開の成功を意味しない。
+
+### 公開準備の残課題と停止条件
+
+今回のbundleは準備時刻から30分（10:18:14 JST）で失効する。商品世代自体も取得から3時間（12:24:19 JST）を超えると停止する。後日に成果物や日時を流用せず、その日の正規の商品・日次編集世代から再prepareする。
+
+Pages公開元、WINDOWS_PIPELINE_ENABLED、Windowsタスク設定は変更していない。実公開・設定切替は別途ユーザー承認が必要。10月25日の通常再開では当日の商品取得、日次編集、日曜週次編集の順と世代結合が揃った実結果を確認する。編集遅延、週次の不一致、商品鮮度超過、本人確認期限切れ、Git競合、成果物失効なら公開しない。
+
+楽天API追加要求0、商品/履歴更新0、Windowsタスク変更0、Pages設定/実公開0、公開Variable変更0、note投稿0。この記録は既存文書用ブランチfeature/rakuten-network-validation-docsへ追記する。文書の取り込み先はレビュー後のdevelopを想定し、今回はマージしない。
