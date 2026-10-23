@@ -70,7 +70,7 @@
 
 ## Gradual root-category expansion
 - Basic categories are dynamically collected from `config/queries.json` by the registered-IP Windows collector. The category list may expand; do not hard-code eight IDs.
-- GitHub Actions (`.github/workflows/category-expansion.yml`) checks Sunday 05:15 JST, starting 2026-10-25. At most one vetted category every 14 days, up to 16 total.
+- GitHub Actions (`.github/workflows/category-expansion.yml`) checks Sunday 05:15 JST, starting 2026-11-01; skip the first Windows migration Sunday. At most one vetted category every 14 days, up to 16 total. Delayed writes after 06:00 JST stop before the Windows collector.
 - Eligibility requires fresh collector-produced `data/products.json`, at least six unique products in the previously added category, and durable history in `data/category-expansion-state.json`.
 - The expansion task never calls the Rakuten API; only the registered-IP Windows collector fetches products.
 - When a new category is too sparse, PAUSE further additions rather than guessing demand or expanding blindly.

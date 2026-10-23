@@ -1,7 +1,7 @@
 {
   "enabled": false,
-  "runtime_dir": "%LOCALAPPDATA%\\GadgetPipeline\\runtime",
+  "runtime_dir": "%USERPROFILE%\\GadgetPipeline\\windows-production\\runtime",
   "proxy_url": "http://proxy.example.invalid:3128",
   "ca_bundle": null,
-  "affiliate_proof": "%LOCALAPPDATA%\\GadgetPipeline\\affiliate-proof.json"
+  "affiliate_proof": "%USERPROFILE%\\GadgetPipeline\\windows-production\\state\\affiliate-proof.json"
 }

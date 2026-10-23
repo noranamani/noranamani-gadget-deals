@@ -103,9 +103,26 @@ def prepare_publication(root: Path, output: Path, source_commit: str, now: datet
     bundle = output / 'bundle'
     shutil.copytree(work / 'docs', bundle / 'docs')
     if decision['includeNote']:
-        run_script(work, 'build_note_article.py')
-        manifest = make_note_manifest(work)
-        write_json(work / 'note/latest/manifest.json', manifest)
+        # A Pages failure may follow a successful note commit. Reuse that exact
+        # issue on recovery; never overwrite an already persisted Sunday issue.
+        note_manifest = work / 'note/latest/manifest.json'
+        same_issue = (note_manifest.is_file() and
+            timestamp(load_json(note_manifest).get('generated_at')).astimezone(JST).date().isoformat()
+            == decision['weeklyEnd'])
+        if same_issue:
+            if validate_existing_note(work, load_json(work / 'data/note-weekly.json')) != 'products-sha256':
+                raise PipelineError('NOTE_SOURCE_GENERATION_MISMATCH')
+            for name in ('article.md', 'article-cover.png'):
+                archive = work / 'note/archive' / decision['weeklyEnd'] / name
+                if not archive.is_file() or digest(archive) != digest(work / 'note/latest' / name):
+                    raise PipelineError('NOTE_EXISTING_ARCHIVE_MISMATCH')
+        else:
+            archive = work / 'note/archive' / decision['weeklyEnd']
+            if archive.exists():
+                raise PipelineError('NOTE_EXISTING_ARCHIVE_MISMATCH')
+            run_script(work, 'build_note_article.py')
+            manifest = make_note_manifest(work)
+            write_json(note_manifest, manifest)
         run_script(work, 'check_note_bundle.py', 'note/latest')
         names = ['note/latest/' + n for n in ('article.md', 'article-cover.png', 'note-post.zip', 'manifest.json')]
         names += ['note/archive/' + decision['weeklyEnd'] + '/' + n for n in ('article.md', 'article-cover.png')]
@@ -184,6 +201,7 @@ def main() -> int:
         else:
             if args.bundle is None:
                 raise PipelineError('BUNDLE_REQUIRED')
+            validate_publication(args.root, now)
             repo = GitRepository(args.root)
             if args.mode == 'persist-note':
                 if os.environ.get('GADGET_PUBLICATION_ENABLED') != '1':

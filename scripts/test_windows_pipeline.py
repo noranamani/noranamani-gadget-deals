@@ -38,6 +38,17 @@ def response(count=18, category='fixture'):
         mediumImageUrls=[{'imageUrl':'https://example.invalid/image.jpg'}], shopName='検証店')
         for n in range(count)]}
 
+
+def seed_collection_history(root):
+    # Collection's fixed clock must never read an advancing production history.
+    # These synthetic rows exist only under the test's TemporaryDirectory.
+    history = {'fixture:retained': [
+        {'date': '2026-10-19', 'price': 1200}, {'date': '2026-10-20', 'price': 1100}]}
+    for query in load_json(root / 'config/queries.json'):
+        history[query['id'] + ':0'] = [
+            {'date': '2026-10-19', 'price': 1300}, {'date': '2026-10-20', 'price': 1200}]
+    write_json(root / 'data/history.json', history)
+
 class TemporarySource(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -45,6 +56,7 @@ class TemporarySource(unittest.TestCase):
         self.root = self.base / 'source'
         for folder in ('data', 'config'):
             shutil.copytree(ROOT / folder, self.root / folder)
+        seed_collection_history(self.root)
         self.state = self.base / 'state'
     def tearDown(self):
         self.temp.cleanup()
@@ -82,6 +94,12 @@ class CollectionTests(TemporarySource):
         with self.assertRaises(PipelineError): self.collect(request)
         request.assert_not_called()
         self.assertFalse((self.state/'CURRENT.json').exists())
+    def test_future_history_still_stops_before_api(self):
+        write_json(self.root/'data/history.json', {'fixture:future': [{'date':'2026-10-22','price':1000}]})
+        request = Mock()
+        with self.assertRaisesRegex(PipelineError, 'HISTORY_FROM_FUTURE'):
+            self.collect(request)
+        request.assert_not_called()
     def test_corrupt_history_stops_before_api(self):
         write_bytes(self.root/'data/history.json', b'{broken')
         request=Mock()

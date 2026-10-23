@@ -269,6 +269,7 @@ class OutputPipelineTests(unittest.TestCase):
             root, state = Path(tmp)/'source', Path(tmp)/'state'
             for directory in ('config', 'data'):
                 shutil.copytree(fixtures.ROOT/directory, root/directory)
+            fixtures.seed_collection_history(root)
             hashes = source_hashes(root)
             before = load_json(root/'data/history.json')
             queries = load_json(root/'config/queries.json')
@@ -296,6 +297,7 @@ class OutputPipelineTests(unittest.TestCase):
             root, state = Path(tmp)/'source', Path(tmp)/'state'
             for directory in ('config', 'data'):
                 shutil.copytree(fixtures.ROOT/directory, root/directory)
+            fixtures.seed_collection_history(root)
             hashes = source_hashes(root)
             good = fixtures.response()
             for item in good['items']:
