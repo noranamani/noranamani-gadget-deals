@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
   "site_id": "gadget",
-  "issue_key": "2026-W42",
+  "issue_key": "2026-W43",
   "status": "ready",
-  "title": "今週のガジェット価格ウォッチ｜車載用品に値下がり候補",
+  "title": "今週のガジェット価格ウォッチ｜充電関連の値下がり候補を確認",
   "article_path": "article.md",
   "cover_path": "article-cover.png",
   "source_url": "https://noranamani.github.io/noranamani-gadget-deals/",
-  "generated_at": "2026-10-17T22:01:00+00:00",
-  "editorial_sha256": "b497f7dd47621b8fdd7cc654ba49038d78d925e234408433fdbde93f14ee440e",
+  "generated_at": "2026-10-24T22:41:29.871000+00:00",
+  "editorial_sha256": "30eaaeaea5391529804c82412e3bc58853a228264c149a33c3546598ae415af3",
   "files_sha256": {
-    "article.md": "7c15b992f38433d600fdbc981a27e1d2afc488b6f0a2c8426332d3bcd98c5c07",
-    "article-cover.png": "68846a1aae5f4d2dbff2fdcef6bd05f36368192a1ac9e143e8b0b5cb38c658d8",
-    "note-post.zip": "24d113483ee76b5ecc0c363f21065d3b46452c291656983302a564e1fea7a593"
+    "article.md": "afd0ac97921637c15f2ba3e82a0c29837224041983246bf52c6e1d9aa5eb4332",
+    "article-cover.png": "88f7ddf52abccb70aa94ac941d75ce93cce8a3119413c254cce9c00e7c1d5d8b",
+    "note-post.zip": "193a0a3b6b1f13ac4888aa3f39252abbd705bad6bd74d32e4c19ff5e92688a84"
   },
-  "source_binding": "legacy-preserved-unbound",
-  "legacy_source_commit": "62cc15dfb40d396dd083171db516a2c95a9c0126"
+  "source_binding": "products-sha256",
+  "source_products_sha256": "c9be4b94d9b5200201b29a83514a70408f86406c6699e39ff8ef4b6d380c1fd8"
 }
