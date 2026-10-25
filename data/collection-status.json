@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-10-24T21:10:01.070780Z",
-  "sourceCommit": "9537d57ea3fdda59e9429b9eb51db66d82a56dfc",
-  "productsSha256": "c9be4b94d9b5200201b29a83514a70408f86406c6699e39ff8ef4b6d380c1fd8",
-  "historySha256": "39c18390ecf0c3e94e16d578228496afadc50070acc0966370e2a8d2fc7c063b",
+  "collectedAt": "2026-10-25T21:10:02.367855Z",
+  "sourceCommit": "4c767b4d505a3f58d8cfef8b2c01bdfbff195e1e",
+  "productsSha256": "b9a07e02d850d27b30256e447da2555a63bfc8a1074828dc7167f5b8bbd7a2f3",
+  "historySha256": "c8f38b5c63b29d63da31f6752cd3d4fad4e2fe767e23c5f049a67f69b582a08b",
   "queriesSha256": "d2810371919a8bf7f5cfa1afc8f705ef3d788de420a9361d4b014e025d00fb8a",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
@@ -41,7 +41,7 @@
     },
     {
       "id": "dashcam",
-      "fetchedUnique": 58,
+      "fetchedUnique": 59,
       "displayed": 18
     },
     {
@@ -51,9 +51,9 @@
     }
   ],
   "historyPreservation": {
-    "previousKeys": 475,
-    "previousRecords": 3311,
-    "currentKeys": 479,
-    "currentRecords": 3713
+    "previousKeys": 479,
+    "previousRecords": 3713,
+    "currentKeys": 481,
+    "currentRecords": 4116
   }
 }
