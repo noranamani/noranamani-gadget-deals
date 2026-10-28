@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-10-26T21:10:02.161486Z",
-  "sourceCommit": "96b027543f635b9560fd6f947f18492acf2b1659",
-  "productsSha256": "e4ffcf0b971d3b288e706eb90dcb1177006320b067f1147f54f30b1377169036",
-  "historySha256": "a09c7bde60716a20421b1f211cfdbb88a1da3d4deae001b787cc484a80ab59ab",
+  "collectedAt": "2026-10-28T21:10:02.373476Z",
+  "sourceCommit": "8c02ecf0e3c125539df852f082df58ade05fc722",
+  "productsSha256": "96744822daf0e2c5f2325119921ee4ad3c854902f9405e7b06a49c09613e617e",
+  "historySha256": "b451f87e4f89774ea1d34ab43e09bf7ca9c9efcb46a0b7017eb3ef4442a97a88",
   "queriesSha256": "d2810371919a8bf7f5cfa1afc8f705ef3d788de420a9361d4b014e025d00fb8a",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
@@ -11,12 +11,12 @@
   "categories": [
     {
       "id": "usb-charger",
-      "fetchedUnique": 52,
+      "fetchedUnique": 54,
       "displayed": 18
     },
     {
       "id": "wireless-charger",
-      "fetchedUnique": 48,
+      "fetchedUnique": 49,
       "displayed": 18
     },
     {
@@ -26,7 +26,7 @@
     },
     {
       "id": "car-charger",
-      "fetchedUnique": 50,
+      "fetchedUnique": 52,
       "displayed": 18
     },
     {
@@ -46,14 +46,14 @@
     },
     {
       "id": "mobile-router",
-      "fetchedUnique": 36,
+      "fetchedUnique": 37,
       "displayed": 18
     }
   ],
   "historyPreservation": {
-    "previousKeys": 481,
-    "previousRecords": 4116,
-    "currentKeys": 483,
-    "currentRecords": 4519
+    "previousKeys": 483,
+    "previousRecords": 4519,
+    "currentKeys": 487,
+    "currentRecords": 4927
   }
 }
