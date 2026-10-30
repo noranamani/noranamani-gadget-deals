@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-10-28T21:10:02.373476Z",
-  "sourceCommit": "8c02ecf0e3c125539df852f082df58ade05fc722",
-  "productsSha256": "96744822daf0e2c5f2325119921ee4ad3c854902f9405e7b06a49c09613e617e",
-  "historySha256": "b451f87e4f89774ea1d34ab43e09bf7ca9c9efcb46a0b7017eb3ef4442a97a88",
+  "collectedAt": "2026-10-30T21:10:02.411277Z",
+  "sourceCommit": "9f9d4329106ee64d8d679fcf5607b28bff2230ef",
+  "productsSha256": "73d77dcd36ad480e742c53071b94fc1241776002f1f377ab9e78c27bc6a97bb6",
+  "historySha256": "8ec4516ce666ddb78f82502b2d7bbd712347a578e1a8dd5b0ccea5f851489cdf",
   "queriesSha256": "d2810371919a8bf7f5cfa1afc8f705ef3d788de420a9361d4b014e025d00fb8a",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
@@ -21,12 +21,12 @@
     },
     {
       "id": "microsd",
-      "fetchedUnique": 49,
+      "fetchedUnique": 50,
       "displayed": 18
     },
     {
       "id": "car-charger",
-      "fetchedUnique": 52,
+      "fetchedUnique": 51,
       "displayed": 18
     },
     {
@@ -41,7 +41,7 @@
     },
     {
       "id": "dashcam",
-      "fetchedUnique": 59,
+      "fetchedUnique": 58,
       "displayed": 18
     },
     {
@@ -51,9 +51,9 @@
     }
   ],
   "historyPreservation": {
-    "previousKeys": 483,
-    "previousRecords": 4519,
-    "currentKeys": 487,
-    "currentRecords": 4927
+    "previousKeys": 487,
+    "previousRecords": 4927,
+    "currentKeys": 494,
+    "currentRecords": 5334
   }
 }
