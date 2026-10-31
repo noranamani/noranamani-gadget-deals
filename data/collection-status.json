@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-10-30T21:10:02.411277Z",
-  "sourceCommit": "9f9d4329106ee64d8d679fcf5607b28bff2230ef",
-  "productsSha256": "73d77dcd36ad480e742c53071b94fc1241776002f1f377ab9e78c27bc6a97bb6",
-  "historySha256": "8ec4516ce666ddb78f82502b2d7bbd712347a578e1a8dd5b0ccea5f851489cdf",
+  "collectedAt": "2026-10-31T21:10:02.382295Z",
+  "sourceCommit": "5f189f680e1888168acd1619f7f87ce9c7531632",
+  "productsSha256": "bc6d1efb8b9c293515510fa4fc2704021a32abd873dfcf08a67ef70e75e5fbae",
+  "historySha256": "0612b7bd3fa6614fe6bae46c56e839e18aa0cef19b98ea1db10dc48f527020a2",
   "queriesSha256": "d2810371919a8bf7f5cfa1afc8f705ef3d788de420a9361d4b014e025d00fb8a",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
@@ -26,7 +26,7 @@
     },
     {
       "id": "car-charger",
-      "fetchedUnique": 51,
+      "fetchedUnique": 50,
       "displayed": 18
     },
     {
@@ -51,9 +51,9 @@
     }
   ],
   "historyPreservation": {
-    "previousKeys": 487,
-    "previousRecords": 4927,
-    "currentKeys": 494,
-    "currentRecords": 5334
+    "previousKeys": 494,
+    "previousRecords": 5334,
+    "currentKeys": 497,
+    "currentRecords": 5741
   }
 }
