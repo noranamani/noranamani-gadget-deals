@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-10-31T21:10:02.382295Z",
-  "sourceCommit": "5f189f680e1888168acd1619f7f87ce9c7531632",
-  "productsSha256": "bc6d1efb8b9c293515510fa4fc2704021a32abd873dfcf08a67ef70e75e5fbae",
-  "historySha256": "0612b7bd3fa6614fe6bae46c56e839e18aa0cef19b98ea1db10dc48f527020a2",
+  "collectedAt": "2026-11-01T21:10:02.267430Z",
+  "sourceCommit": "505b136639d889bcf96cca654cd069f90889229c",
+  "productsSha256": "80385d8749b50429b6f32cfc47be5fe66e637d467a34720f5ba63bfe4473dc7b",
+  "historySha256": "748e192e0bb25993faf6a74395e016fb28ff365dbc976bb1a71834a9457f2926",
   "queriesSha256": "d2810371919a8bf7f5cfa1afc8f705ef3d788de420a9361d4b014e025d00fb8a",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
@@ -26,7 +26,7 @@
     },
     {
       "id": "car-charger",
-      "fetchedUnique": 50,
+      "fetchedUnique": 51,
       "displayed": 18
     },
     {
@@ -41,7 +41,7 @@
     },
     {
       "id": "dashcam",
-      "fetchedUnique": 58,
+      "fetchedUnique": 59,
       "displayed": 18
     },
     {
@@ -51,9 +51,9 @@
     }
   ],
   "historyPreservation": {
-    "previousKeys": 494,
-    "previousRecords": 5334,
-    "currentKeys": 497,
-    "currentRecords": 5741
+    "previousKeys": 497,
+    "previousRecords": 5741,
+    "currentKeys": 498,
+    "currentRecords": 6149
   }
 }
