@@ -21,12 +21,10 @@ def week_label(end):
     return (end - timedelta(days=6)).strftime('%Y/%m/%d') + '〜' + end.strftime('%Y/%m/%d')
 
 
-def validate_publication(root: Path, now: datetime) -> dict:
+def validate_collection(root: Path, now: datetime) -> tuple:
     products = load_json(root / 'data/products.json')
     history = load_json(root / 'data/history.json')
     status = load_json(root / 'data/collection-status.json')
-    editorial = load_json(root / 'data/editorial.json')
-    weekly = load_json(root / 'data/note-weekly.json')
     queries = load_json(root / 'config/queries.json')
     validate_history(history)
     validate_queries(queries)
@@ -39,11 +37,21 @@ def validate_publication(root: Path, now: datetime) -> dict:
         raise PipelineError('COLLECTION_GENERATION_MISMATCH')
     if status.get('affiliateVerified') is not True or timestamp(status.get('affiliateVerificationExpiresAt')) <= now:
         raise PipelineError('AFFILIATE_CONFIRMATION_REQUIRED')
-    collected, edited = timestamp(products.get('updatedAt')), timestamp(editorial.get('generatedAt'))
+    collected = timestamp(products.get('updatedAt'))
     today = now.astimezone(JST).date()
     if (collected.astimezone(JST).date() != today or collected > now or now - collected > timedelta(hours=3)
             or (collected.astimezone(JST).hour, collected.astimezone(JST).minute) < (6, 10)):
         raise PipelineError('PRODUCTS_STALE_OR_FUTURE')
+    if [c['id'] for c in products.get('categories', [])] != [q['id'] for q in queries]:
+        raise PipelineError('PRODUCT_CATEGORY_COVERAGE_INVALID')
+    return products, history, status, queries
+
+
+def validate_daily(root: Path, now: datetime) -> dict:
+    products, history, status, queries = validate_collection(root, now)
+    editorial = load_json(root / 'data/editorial.json')
+    collected, edited = timestamp(products.get('updatedAt')), timestamp(editorial.get('generatedAt'))
+    today = now.astimezone(JST).date()
     if (edited < collected or edited > now or edited.astimezone(JST).date() != today
             or (edited.astimezone(JST).hour, edited.astimezone(JST).minute) < (6, 30)
             or editorial.get('sourceProductsSha256') != status['productsSha256']):
@@ -59,6 +67,15 @@ def validate_publication(root: Path, now: datetime) -> dict:
     for row in notes:
         if row.get('topPickCode') and row['topPickCode'] not in by_id[row['categoryId']]:
             raise PipelineError('EDITORIAL_TOP_PICK_INVALID')
+    return editorial
+
+
+def validate_publication(root: Path, now: datetime) -> dict:
+    editorial = validate_daily(root, now)
+    status = load_json(root / 'data/collection-status.json')
+    weekly = load_json(root / 'data/note-weekly.json')
+    edited = timestamp(editorial.get('generatedAt'))
+    today = now.astimezone(JST).date()
     sunday = today - timedelta(days=(today.weekday() + 1) % 7)
     generated = timestamp(weekly.get('generatedAt'))
     if (str(weekly.get('weekLabel', '')).replace('～', '〜') != week_label(sunday)

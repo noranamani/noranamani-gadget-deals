@@ -97,6 +97,10 @@ class GitRepository:
         if kind == 'collection':
             if set(files) != set(COLLECTION_FILES):
                 raise PipelineError('COLLECTION_COMMIT_FILES_INVALID')
+        elif kind in ('editorial', 'weekly_editorial'):
+            expected = 'data/editorial.json' if kind == 'editorial' else 'data/note-weekly.json'
+            if set(files) != {expected}:
+                raise PipelineError('EDITORIAL_COMMIT_FILES_INVALID')
         elif kind == 'note':
             required = {'note/latest/' + name for name in ('article.md', 'article-cover.png', 'note-post.zip', 'manifest.json')}
             if not required <= set(files):

@@ -1,5 +1,7 @@
 # 既存日曜06:40 JST note編集タスク用プロンプト（移行承認後）
 
+最初にconfig/automation-owner.jsonを確認してください。editorialOwner=windowsの場合はWindowsが編集担当です。読み取り・報告のみとし、週次JSON変更・commit・push・Actions再実行・タスク追加をしないでください。以下の旧編集手順は実行せず終了してください。
+
 AGENTS.mdを読み、最新mainの同じコミットからdata/products.json、data/history.json、data/editorial.json、data/collection-status.jsonを確認してください。
 
 当日06:10以降の商品取得と06:30の編集が同じproductsSha256に対応し、全カテゴリが揃っている場合だけ、根拠データを使ってdata/note-weekly.jsonだけを更新します。不整合・未更新なら停止し報告してください。

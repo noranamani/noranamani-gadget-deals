@@ -25,8 +25,9 @@ class FirstMigrationTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.base = Path(self.temp.name)
         self.root = self.base/'source'
-        for folder in ('scripts','config','data','docs','note'):
+        for folder in ('config','data'):
             shutil.copytree(fixtures.ROOT/folder,self.root/folder)
+        fixtures.copy_publication_sources(self.root)
         # Actual product values are never changed; only a copy with fixture URLs is used.
         products = load_json(self.root/'data/products.json')
         for category in products['categories']:
@@ -68,6 +69,12 @@ class FirstMigrationTests(unittest.TestCase):
             'affiliateVerificationExpiresAt':(now+timedelta(days=20)).isoformat()})
         self.edit('editorial.json',generatedAt=now.replace(hour=6,minute=30).isoformat(),
                   sourceProductsSha256=products_hash)
+        value = load_json(self.root/'data/editorial.json')
+        value['featuredDeals'] = []
+        value['categoryNotes'] = [{'categoryId': c['id'], 'topPickCode': '',
+            'summary': '移行検証用のコメント', 'watchouts': []}
+            for c in load_json(self.root/'data/products.json')['categories']]
+        write_json(self.root/'data/editorial.json', value)
 
     def sunday_editorial(self):
         self.day(fixtures.SUNDAY)

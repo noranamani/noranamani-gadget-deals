@@ -3,16 +3,22 @@
 このリポジトリは、楽天市場の公開商品データを使った「比較 + 特価候補」サイトを自動更新するためのものです。
 
 ## Daily architecture
+Windows完結方式の編集担当はconfig/automation-owner.jsonで指定する。
+editorialOwner=windowsの場合、既存のChatGPT/クラウド日次・週次編集タスクは読み取り・報告のみとし、編集JSONの変更・commit・pushをしない。
+run_windows_daily.pyが実データだけから定型編集を作る。06:30/日曜06:40の実時刻以前に生成しない。
+Git競合は停止し、同じ商品世代の有効な既存編集は再利用する。公開は同じActions workflowのconcurrency/当日成功記録で重複を防ぐ。
+このPRの本番切替はユーザー承認後。コードの取り込みだけでWindowsの実行コマンドは変更されない。
 移行用コードはレビュー対象で、運用切替はユーザー承認後に行う。詳細は operations/windows-migration.md。
 
 1. 06:10 JST: Windowsの専用Python処理が楽天APIを取得し、履歴保全・世代検証後に3データファイルを単一コミットで反映する。
-2. 06:30 JST: 既存ChatGPTタスクが data/editorial.json だけを更新する。
-3. 日曜06:40 JST: 既存ChatGPTタスクが data/note-weekly.json だけを更新する。
-4. 06:50 JST: 明示的に有効化されたActionsが鮮度・世代を確認しサイト生成・検証・Pagesデプロイする。日曜はnote生成物をmainへ保存する。
+2. 06:30 JST: 承認後のWindows完結処理が data/editorial.json だけを更新する。
+3. 日曜06:40 JST: 同じWindows処理が data/note-weekly.json だけを更新する。
+4. 06:50 JST: Windowsで記事/サイト/画像/ZIPを一時生成・検証後、既存Actionsへ一度だけ起動依頼する。Actionsが再検証してPagesデプロイし、日曜はnote生成物をmainへ保存する。Windowsは実際のPublish Pages成功を確認して終了する。
 
 楽天APIは登録済み出口IPのWindowsだけから取得する。クラウド編集タスク・Actionsは楽天APIを呼ばない。新しい編集タスクは追加しない。旧Oracleシェルは誤実行防止で停止する。
 
 ## Editorial task
+config/automation-owner.jsonのeditorialOwner=windowsなら、この節を実行せず読み取り・報告のみとする。以下は旧方式の規則として保管する。
 スケジュール済みの編集タスクでは、次だけを行う。
 
 1. `data/products.json` と `data/history.json` を確認する。
@@ -79,6 +85,7 @@
 - Public site text must not mention AI generation techniques. Do not commit secrets.
 
 ## Weekly note media
+editorialOwner=windowsなら、既存のChatGPT週次タスクは変更・commit・pushをせず読み取り・報告だけにする。週次編集データはrun_windows_daily.pyが担当し、note.comへの投稿は行わない。
 毎週日曜の note 用記事は、日次サイト更新とは別のスケジュール済みタスクで編集データを作る。
 
 1. 毎週日曜 06:40（Asia/Tokyo）に最新の `data/products.json` / `data/history.json` / `data/editorial.json` を読む。

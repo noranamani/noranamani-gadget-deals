@@ -80,8 +80,7 @@ class SundayRehearsalTests(unittest.TestCase):
         self.root, self.base = self.fixture.root, self.fixture.base
 
     def copy_build_sources(self):
-        for folder in ('scripts', 'docs', 'note'):
-            shutil.copytree(fixtures.ROOT / folder, self.root / folder)
+        fixtures.copy_publication_sources(self.root)
 
     def test_early_publication_refused_without_api(self):
         get = Mock()
