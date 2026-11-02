@@ -42,6 +42,14 @@ class GitRepository:
         except (OSError, subprocess.TimeoutExpired):
             raise PipelineError('GIT_UNAVAILABLE_OR_TIMEOUT') from None
         if result.returncode:
+            # Classify in memory only; stderr can contain authenticated URLs.
+            message = result.stderr.lower()
+            if any(x in message for x in (b'authentication failed', b'could not read username', b'http 401', b'http 403')):
+                raise PipelineError('GIT_AUTH_REQUIRED')
+            if b'error: 429' in message:
+                raise PipelineError('GIT_RATE_LIMITED')
+            if any(x in message for x in (b'ssl certificate problem', b'certificate verify failed', b'unable to get local issuer')):
+                raise PipelineError('GIT_TLS_INVALID')
             raise PipelineError('GIT_COMMAND_FAILED')
         return result.stdout
 
@@ -97,6 +105,10 @@ class GitRepository:
         if kind == 'collection':
             if set(files) != set(COLLECTION_FILES):
                 raise PipelineError('COLLECTION_COMMIT_FILES_INVALID')
+        elif kind in ('editorial', 'weekly_editorial'):
+            expected = 'data/editorial.json' if kind == 'editorial' else 'data/note-weekly.json'
+            if set(files) != {expected}:
+                raise PipelineError('EDITORIAL_COMMIT_FILES_INVALID')
         elif kind == 'note':
             required = {'note/latest/' + name for name in ('article.md', 'article-cover.png', 'note-post.zip', 'manifest.json')}
             if not required <= set(files):

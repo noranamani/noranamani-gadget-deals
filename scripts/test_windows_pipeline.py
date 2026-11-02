@@ -49,6 +49,22 @@ def seed_collection_history(root):
             {'date': '2026-10-19', 'price': 1300}, {'date': '2026-10-20', 'price': 1200}]
     write_json(root / 'data/history.json', history)
 
+
+def copy_publication_sources(root):
+    # A first-Sunday fixture must not adopt a moving production manifest/archive
+    # for the same fixed historical week. Other preservation cases install their
+    # explicitly generated fixture bundle after this initial copy.
+    assert root.resolve() != ROOT.resolve()
+    def ignore(folder, names):
+        path = Path(folder).resolve()
+        if path == (ROOT/'note/latest').resolve():
+            return ['manifest.json'] if 'manifest.json' in names else []
+        if path == (ROOT/'note/archive').resolve():
+            return [SUNDAY.date().isoformat()] if SUNDAY.date().isoformat() in names else []
+        return []
+    for folder in ('scripts', 'docs', 'note'):
+        shutil.copytree(ROOT/folder, root/folder, ignore=ignore)
+
 class TemporarySource(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -372,10 +388,15 @@ class PublicationTests(TemporarySource):
         write_json(self.root/'data/collection-status.json',status)
         daily=load_json(self.root/'data/editorial.json')
         daily.update(generatedAt=SUNDAY.replace(hour=6,minute=30).isoformat(),sourceProductsSha256=status['productsSha256'])
+        # Fixed editorial fixtures must not inherit stale production item codes.
+        daily['featuredDeals'] = []
+        daily['categoryNotes'] = [{'categoryId': c['id'], 'topPickCode': c['items'][0]['code'],
+            'summary': '検証用の比較コメント', 'watchouts': ['検証用の注意点']} for c in products['categories']]
         write_json(self.root/'data/editorial.json',daily)
         weekly=load_json(self.root/'data/note-weekly.json')
         weekly.update(generatedAt=SUNDAY.replace(hour=6,minute=40).isoformat(),
             sourceProductsSha256=status['productsSha256'],weekLabel='2026/10/19〜2026/10/25')
+        weekly['featured'] = []
         write_json(self.root/'data/note-weekly.json',weekly)
     def edit(self,name,**changes):
         path=self.root/'data'/name; value=load_json(path); value.update(changes); write_json(path,value)
@@ -413,7 +434,7 @@ class PublicationTests(TemporarySource):
         self.edit('note-weekly.json',sourceProductsSha256='b'*64)
         with self.assertRaisesRegex(PipelineError,'NOTE_SOURCE'): validate_publication(self.root,SUNDAY)
     def test_full_site_and_note_build_only_in_temporary_environment(self):
-        for folder in ('scripts','docs','note'): shutil.copytree(ROOT/folder,self.root/folder)
+        copy_publication_sources(self.root)
         original=source_hashes(self.root)
         output=self.base/'publication'
         manifest=prepare_publication(self.root,output,SHA,SUNDAY)
@@ -434,7 +455,7 @@ class PublicationTests(TemporarySource):
     def test_no_implicit_note_write(self):
         with self.assertRaisesRegex(PipelineError,'NOT_APPROVED'): persist_note(Mock(),self.base/'absent',SUNDAY)
     def test_weekday_preserves_previous_sunday_note_source(self):
-        for folder in ('scripts','docs','note'): shutil.copytree(ROOT/folder,self.root/folder)
+        copy_publication_sources(self.root)
         generated = self.base/'sunday-bundle'
         prepare_publication(self.root,generated,SHA,SUNDAY)
         shutil.copytree(generated/'bundle/note',self.root/'note',dirs_exist_ok=True)

@@ -1,5 +1,7 @@
 # 既存06:30 JST編集タスク用プロンプト（移行承認後）
 
+最初にconfig/automation-owner.jsonを確認してください。editorialOwner=windowsの場合はWindowsが編集担当です。取得・編集・公開の状況確認と報告だけを行い、ファイル変更・commit・push・Actions再実行・新しいタスク作成はしないでください。以下の編集手順は実行せず終了してください。
+
 AGENTS.mdを読み、最新mainの同じコミットからdata/products.json、data/history.json、data/collection-status.json、config/queries.jsonを確認してください。
 
 商品が当日06:10 JST以降に取得され、全カテゴリが揃い、collection-status.jsonのproductsSha256が当該productsのSHA-256と一致する場合だけ、data/editorial.jsonを更新してください。取得失敗・未更新・整合不明なら停止して報告してください。

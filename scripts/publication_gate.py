@@ -13,13 +13,13 @@ from datetime import datetime, time, timezone
 from pathlib import Path
 
 from pipeline_common import JST, PipelineError, timestamp
-from publication_pipeline import validate_publication
+from publication_pipeline import validate_publication, validate_site_publication
 
 WORKFLOW = 'windows-daily-publish.yml'
 DEPLOY_STEP = 'Publish Pages'
 
 
-def publication_needed(get, now: datetime) -> bool:
+def publication_receipt(get, now: datetime, *, fail_on_uncertain=True):
     """GitHub's completed deployment step is the receipt, not a note commit.
 
     A failed/cancelled deployment attempt is ambiguous: it may have reached
@@ -30,7 +30,7 @@ def publication_needed(get, now: datetime) -> bool:
     start = datetime.combine(now.astimezone(JST).date(), time.min, JST).astimezone(timezone.utc)
     query = urllib.parse.urlencode({'branch': 'main', 'created': '>=' + start.isoformat()})
     uncertain = False
-    published = False
+    published = None
     for page in range(1, 11):
         payload = get(f'actions/workflows/{WORKFLOW}/runs?{query}&per_page=100&page={page}')
         rows = payload.get('workflow_runs')
@@ -52,7 +52,7 @@ def publication_needed(get, now: datetime) -> bool:
                             continue
                         conclusion = step.get('conclusion')
                         if conclusion == 'success':
-                            published = True
+                            published = {'runId': run['id']}
                         elif step.get('started_at') or conclusion in ('failure', 'cancelled', 'timed_out'):
                             uncertain = True
                 if len(jobs) < 100:
@@ -64,10 +64,16 @@ def publication_needed(get, now: datetime) -> bool:
     else:
         raise PipelineError('PUBLICATION_STATE_PAGINATION_LIMIT')
     if published:
-        return False
-    if uncertain:
+        return published
+    if uncertain and fail_on_uncertain:
         raise PipelineError('PUBLICATION_DEPLOYMENT_UNCERTAIN')
-    return True
+    return None
+
+
+def publication_needed(get, now: datetime) -> bool:
+    # New requests remain fail-closed. Observation-only callers may wait for
+    # an in-flight deployment, but can never infer success from its presence.
+    return publication_receipt(get, now) is None
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -94,17 +100,18 @@ def github_reader(repository: str, token: str):
     return get
 
 
-def gate(root: Path, now: datetime, get) -> bool:
+def gate(root: Path, now: datetime, get, *, site_only=False) -> bool:
     # Never make an early trigger publish before the intended publication slot.
     if now.astimezone(JST).time() < time(6, 50):
         raise PipelineError('BEFORE_PUBLICATION_WINDOW')
-    validate_publication(root, now)  # same strict freshness, category and hash rules
+    (validate_site_publication if site_only else validate_publication)(root, now)
     return publication_needed(get, now)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, required=True)
+    parser.add_argument('--site-only', action='store_true')
     args = parser.parse_args()
     try:
         now = datetime.now(timezone.utc)
@@ -116,7 +123,7 @@ def main():
         # Re-run today's attempts only; an old run is not a new daily receipt.
         if timestamp(run.get('created_at')).astimezone(JST).date() != now.astimezone(JST).date():
             raise PipelineError('PUBLICATION_RUN_WRONG_DAY')
-        needed = gate(args.root, now, get)
+        needed = gate(args.root, now, get, site_only=args.site_only)
         value = 'true' if needed else 'false'
         print('publish=' + value)
         if os.environ.get('GITHUB_OUTPUT'):

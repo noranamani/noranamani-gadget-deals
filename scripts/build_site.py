@@ -100,7 +100,8 @@ def unique_current_items(products: dict) -> list[dict]:
 
 def product_card(item: dict, editorial_reason: str = "", sort_order: int = 0, price_uncertain: bool = False) -> str:
     img = esc(item.get("image"))
-    image_html = f'<img src="{img}" alt="" loading="lazy">' if img else '<div class="noimg">No image</div>'
+    image_html = (f'''<img src="{img}" alt="" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.style.display='grid'">'''
+        '<div class="noimg" style="display:none">画像なし</div>') if img else '<div class="noimg">画像なし</div>'
     badges = []
     if price_uncertain:
         badges.append('<span class="badge variant">仕様選択あり</span>')
