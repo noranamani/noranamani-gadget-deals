@@ -90,6 +90,9 @@ class PublicationAPI:
                     raise ValueError()
                 return value
         except urllib.error.HTTPError as exc:
+            if exc.code == 429 or (exc.code == 403 and (exc.headers.get('X-RateLimit-Remaining') == '0'
+                    or exc.headers.get('Retry-After'))):
+                raise PipelineError('PUBLICATION_RATE_LIMITED') from None
             if exc.code in (401, 403, 404):
                 error = (PublicationError('PUBLICATION_API_PERMISSION_REQUIRED', 'failed') if body is not None
                     else PipelineError('PUBLICATION_API_PERMISSION_REQUIRED'))
@@ -101,7 +104,13 @@ class PublicationAPI:
                 else 'PUBLICATION_STATE_UNAVAILABLE') from None
 
     def get(self, path):
-        return self.call(path)
+        for attempt in range(3):
+            try:
+                return self.call(path)
+            except PipelineError as exc:
+                if str(exc) != 'PUBLICATION_STATE_UNAVAILABLE' or attempt == 2:
+                    raise
+                timing.sleep(2 * 2**attempt)  # GET only; never resend dispatch.
 
     def dispatch(self):
         return self.call('actions/workflows/'+WORKFLOW+'/dispatches', {'ref': 'main'})

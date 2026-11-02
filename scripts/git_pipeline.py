@@ -42,6 +42,14 @@ class GitRepository:
         except (OSError, subprocess.TimeoutExpired):
             raise PipelineError('GIT_UNAVAILABLE_OR_TIMEOUT') from None
         if result.returncode:
+            # Classify in memory only; stderr can contain authenticated URLs.
+            message = result.stderr.lower()
+            if any(x in message for x in (b'authentication failed', b'could not read username', b'http 401', b'http 403')):
+                raise PipelineError('GIT_AUTH_REQUIRED')
+            if b'error: 429' in message:
+                raise PipelineError('GIT_RATE_LIMITED')
+            if any(x in message for x in (b'ssl certificate problem', b'certificate verify failed', b'unable to get local issuer')):
+                raise PipelineError('GIT_TLS_INVALID')
             raise PipelineError('GIT_COMMAND_FAILED')
         return result.stdout
 

@@ -93,7 +93,9 @@ editorialOwner=windowsなら、既存のChatGPT週次タスクは変更・commit
 3. 日曜 06:50 の GitHub Actions 最終生成処理で `scripts/build_note_article.py` を実行し、note投稿バッチ v0.3 互換のファイルを `note/latest/` に生成する。
 4. この処理はnote投稿を実施しない。既存投稿バッチ・投稿台帳は維持し、有効化や投稿は別途ユーザー承認を受ける。
 
-日次サイトはpublication_pipeline.pyのpurpose=site、日曜素材はpurpose=noteで生成・検証する。noteの欠落/不正は素材生成を停止し、過去データを補完・上書きしない。商品/履歴/日次の不正、秘密情報、Git競合、不明な書込みはサイト側も停止する。note.com実投稿はnoranamani-note-cloudの独立した運用とし、Pages成功を投稿成功と扱わない。
+日次サイトはpublication_pipeline.pyのpurpose=site、日曜素材はpurpose=noteで生成・検証する。noteの欠落/不正は素材生成を停止し、過去データを補完・上書きしない。商品/履歴/日次の不正、秘密情報、日次自身のGit競合/不明な書込みはサイト側も停止する。週次の不明な書込みは隔離し、最新mainの日次を再検証できた場合だけサイトを継続する。note.com実投稿はnoranamani-note-cloudの独立した運用とし、Pages成功を投稿成功と扱わない。
+
+段階別の私有状態と--resume/--statusの仕様はoperations/windows-recovery-design.mdを参照。成功済みの入出力は再利用し、API/公開/不明なpushを盲目的に再送しない。復旧用XMLは未登録のレビュー用。タスク変更・実公開は本人承認後に行う。
 
 ### Weekly note editorial rules
 - 値下がり候補がない週は無理に「特価」「セール」と書かず、「価格ウォッチ」「価格履歴を蓄積中」など事実に合う表現にする。

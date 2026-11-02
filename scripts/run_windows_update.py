@@ -10,11 +10,12 @@ from pathlib import Path
 
 from collection_pipeline import collect_generation, validate_queries
 from git_pipeline import GitRepository
-from pipeline_common import (COLLECTION_FILES, JST, PipelineError, exclusive_lock, load_json,
+from pipeline_common import (COLLECTION_FILES, JST, PipelineError, load_json,
                              read_bytes, timestamp)
 from rakuten_client import RakutenClient, validate_proxy
 from windows_credentials import affiliate_proof, read_windows_credentials
 from output_policy import OutputPolicy
+from recovery_lock import recoverable_lock
 
 REPOSITORY_URL = 'https://github.com/noranamani/noranamani-gadget-deals.git'
 CODE_ROOT = Path(__file__).resolve().parents[1]
@@ -67,7 +68,7 @@ def run_update(cfg: dict, apply: bool, clock=lambda: datetime.now(timezone.utc))
     started = clock()
     if apply:
         require_start_window(started)
-    with exclusive_lock(cfg['runtime_dir']):
+    with recoverable_lock(cfg['runtime_dir']):
         credentials = read_windows_credentials()
         verification = affiliate_proof(cfg['affiliate_proof'], credentials, started)
         if apply and not verification['verified']:

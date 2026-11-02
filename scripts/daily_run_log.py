@@ -6,6 +6,16 @@ from github_publication import require_publication_result
 
 PHASES = {'startup', 'network_readiness', 'collection', 'daily_editorial', 'weekly_editorial', 'build', 'publication', 'complete'}
 CODES = {'GIT_COMMAND_FAILED', 'GIT_UNAVAILABLE_OR_TIMEOUT', 'PUSH_CONFLICT',
+    'RECOVERY_STATE_INVALID', 'RECOVERY_STATE_UNAVAILABLE', 'RECOVERY_GENERATION_CHANGED',
+    'RECOVERY_EXTERNAL_STAGE',
+    'RECOVERY_BACKOFF', 'PUBLICATION_ARTIFACT_EXPIRED',
+    'GIT_AUTH_REQUIRED', 'GIT_TLS_INVALID',
+    'GIT_RATE_LIMITED', 'PUBLICATION_RATE_LIMITED',
+    'RECOVERY_ALREADY_COMPLETED',
+    'RECOVERY_ALREADY_RUNNING',
+    'STAGE_RESULT_UNCONFIRMED', 'STAGE_RETRY_LIMIT', 'OUTSIDE_RECOVERY_WINDOW',
+    'MISSED_COLLECTION_WINDOW', 'NOTE_RECOVERY_BLOCKED',
+    'NOTE_MATERIALS_PERSIST_FAILED', 'NOTE_PERSIST_OBSERVATION_UNAVAILABLE',
     'PUSH_REJECTED_OR_UNCERTAIN', 'PUSH_RESULT_UNCERTAIN', 'ALREADY_RUNNING',
     'OUTSIDE_COLLECTION_START_WINDOW', 'COLLECTION_DEADLINE_EXCEEDED',
     'CREDENTIAL_UNAVAILABLE', 'AFFILIATE_CONFIRMATION_REQUIRED', 'AFFILIATE_PROOF_EXPIRED',
@@ -76,4 +86,10 @@ class RunLog:
             raise PipelineError('RUN_LOG_STATUS_INVALID')
         self.value.update(weeklyNotePreviewStatus=status,
             weeklyNoteCode=fixed_code(code) if code is not None else None)
+        self.save()
+
+    def skip(self, code):
+        if code not in {'RECOVERY_ALREADY_COMPLETED', 'RECOVERY_ALREADY_RUNNING'}:
+            raise PipelineError('RUN_LOG_STATUS_INVALID')
+        self.value.update(status='skipped', code=code)
         self.save()
