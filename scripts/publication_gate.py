@@ -19,7 +19,7 @@ WORKFLOW = 'windows-daily-publish.yml'
 DEPLOY_STEP = 'Publish Pages'
 
 
-def publication_needed(get, now: datetime) -> bool:
+def publication_receipt(get, now: datetime, *, fail_on_uncertain=True):
     """GitHub's completed deployment step is the receipt, not a note commit.
 
     A failed/cancelled deployment attempt is ambiguous: it may have reached
@@ -30,7 +30,7 @@ def publication_needed(get, now: datetime) -> bool:
     start = datetime.combine(now.astimezone(JST).date(), time.min, JST).astimezone(timezone.utc)
     query = urllib.parse.urlencode({'branch': 'main', 'created': '>=' + start.isoformat()})
     uncertain = False
-    published = False
+    published = None
     for page in range(1, 11):
         payload = get(f'actions/workflows/{WORKFLOW}/runs?{query}&per_page=100&page={page}')
         rows = payload.get('workflow_runs')
@@ -52,7 +52,7 @@ def publication_needed(get, now: datetime) -> bool:
                             continue
                         conclusion = step.get('conclusion')
                         if conclusion == 'success':
-                            published = True
+                            published = {'runId': run['id']}
                         elif step.get('started_at') or conclusion in ('failure', 'cancelled', 'timed_out'):
                             uncertain = True
                 if len(jobs) < 100:
@@ -64,10 +64,16 @@ def publication_needed(get, now: datetime) -> bool:
     else:
         raise PipelineError('PUBLICATION_STATE_PAGINATION_LIMIT')
     if published:
-        return False
-    if uncertain:
+        return published
+    if uncertain and fail_on_uncertain:
         raise PipelineError('PUBLICATION_DEPLOYMENT_UNCERTAIN')
-    return True
+    return None
+
+
+def publication_needed(get, now: datetime) -> bool:
+    # New requests remain fail-closed. Observation-only callers may wait for
+    # an in-flight deployment, but can never infer success from its presence.
+    return publication_receipt(get, now) is None
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):

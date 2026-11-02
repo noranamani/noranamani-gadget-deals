@@ -2,8 +2,9 @@
 import re
 import uuid
 from pipeline_common import PipelineError, write_json
+from github_publication import require_publication_result
 
-PHASES = {'startup', 'collection', 'daily_editorial', 'weekly_editorial', 'build', 'publication', 'complete'}
+PHASES = {'startup', 'network_readiness', 'collection', 'daily_editorial', 'weekly_editorial', 'build', 'publication', 'complete'}
 CODES = {'GIT_COMMAND_FAILED', 'GIT_UNAVAILABLE_OR_TIMEOUT', 'PUSH_CONFLICT',
     'PUSH_REJECTED_OR_UNCERTAIN', 'PUSH_RESULT_UNCERTAIN', 'ALREADY_RUNNING',
     'OUTSIDE_COLLECTION_START_WINDOW', 'COLLECTION_DEADLINE_EXCEEDED',
@@ -16,6 +17,8 @@ CODES = {'GIT_COMMAND_FAILED', 'GIT_UNAVAILABLE_OR_TIMEOUT', 'PUSH_CONFLICT',
     'PUBLICATION_API_PERMISSION_REQUIRED', 'PUBLICATION_SOURCE_CHANGED',
     'PUBLICATION_EXECUTION_FAILED', 'PUBLICATION_RESULT_UNCONFIRMED',
     'PUBLICATION_STATE_PAGINATION_LIMIT',
+    'PUBLICATION_RESULT_INVALID',
+    'PUBLICATION_RECEIPT_SAVE_FAILED',
     'SECRET_IN_OUTPUT', 'JSON_INVALID', 'JSON_DUPLICATE_KEY', 'INPUT_UNAVAILABLE',
     'EDITORIAL_TOP_PICK_INVALID', 'EDITORIAL_CATEGORY_COVERAGE_INVALID',
     'HISTORY_OBJECT_REQUIRED', 'HISTORY_SCHEMA_INVALID', 'HISTORY_FROM_FUTURE',
@@ -37,7 +40,8 @@ class RunLog:
         self.clock = clock
         self.path = root / 'logs' / (uuid.uuid4().hex+'.json')
         self.value = {'schemaVersion': 1, 'startedAt': clock().isoformat(),
-            'phase': 'startup', 'status': 'running', 'code': None}
+            'phase': 'startup', 'status': 'running', 'code': None,
+            'publicationStatus': 'not_attempted', 'publicationRunId': None, 'publicationVerified': False}
         self.save()
 
     def save(self):
@@ -53,8 +57,14 @@ class RunLog:
         self.value['phase'] = value
         self.save()
 
-    def finish(self, status, code=None):
+    def finish(self, status, code=None, publication=None):
         if status not in {'success', 'failed'}:
             raise PipelineError('RUN_LOG_STATUS_INVALID')
+        if status == 'success' and publication is None:
+            raise PipelineError('PUBLICATION_RESULT_UNCONFIRMED')
         self.value.update(status=status, code=fixed_code(code) if code is not None else None)
+        if publication is not None:
+            value = require_publication_result(publication, verified_only=status == 'success')
+            self.value.update(publicationStatus=value['status'], publicationRunId=value['runId'],
+                publicationVerified=value['verified'])
         self.save()

@@ -171,6 +171,7 @@ class OrchestrationTests(unittest.TestCase):
         self.repo.prepare_commit.side_effect = commit
         self.repo.push_if_unchanged.side_effect = push
         self.api = Mock()
+        self.api.dispatch.side_effect = lambda: {'workflowRunId': 901+(self.current.date()-fixtures.SUNDAY.date()).days}
         def api_get(path):
             if '/runs?' in path:
                 return {'workflow_runs': [] if not self.api.dispatch.called else [

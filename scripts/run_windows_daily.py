@@ -10,7 +10,8 @@ from datetime import datetime, time, timezone
 from pathlib import Path
 from daily_run_log import RunLog, fixed_code
 from git_pipeline import GitRepository
-from github_publication import PublicationAPI, request_once, await_publication
+from github_publication import (PublicationAPI, PublicationError, request_once, await_publication,
+    require_publication_result, publication_result, publication_failure)
 from output_policy import OutputPolicy
 from pipeline_common import JST, PipelineError, digest, exclusive_lock, load_json, read_bytes, timestamp, write_json
 from publication_pipeline import validate_collection, validate_daily, validate_publication, prepare_publication, verify_bundle, week_label
@@ -52,6 +53,18 @@ def edit_snapshot(root, kind, now, policy):
     return {filename: read_bytes(root/filename)}
 
 
+def fetch_main_ready(repo, clock, pause):
+    """Bounded read-only readiness probe; never retries a push or API write."""
+    for attempt in range(3):
+        require_start_window(clock())
+        try:
+            return repo.fetch_main()
+        except PipelineError as exc:
+            if str(exc) not in {'GIT_COMMAND_FAILED', 'GIT_UNAVAILABLE_OR_TIMEOUT'} or attempt == 2:
+                raise
+            pause(10)
+
+
 def orchestrate(cfg, clock=lambda: datetime.now(timezone.utc), pause=timing.sleep, log=None):
     if not cfg['enabled']:
         raise PipelineError('PRODUCTION_DISABLED')
@@ -71,7 +84,7 @@ def orchestrate(cfg, clock=lambda: datetime.now(timezone.utc), pause=timing.slee
                 raise PipelineError('PUBLICATION_SOURCE_CHANGED')
             return sha, dest
 
-        phase('collection')
+        phase('network_readiness')
         reused = False
         created = not repo.root.exists()
         repo.root.mkdir(parents=True, exist_ok=True)
@@ -80,7 +93,8 @@ def orchestrate(cfg, clock=lambda: datetime.now(timezone.utc), pause=timing.slee
             repo.run('remote', 'add', 'origin', REPOSITORY_URL)
         if repo.run('rev-parse', '--is-bare-repository').strip() != b'true' or repo.run('remote', 'get-url', 'origin').decode().strip() != REPOSITORY_URL:
             raise PipelineError('RUNTIME_REPOSITORY_INVALID')
-        base = repo.fetch_main()
+        base = fetch_main_ready(repo, clock, pause)
+        phase('collection')
         existing = run/'existing'
         repo.archive(base, existing)
         require_windows_owner(existing)  # before any Rakuten request
@@ -123,13 +137,23 @@ def orchestrate(cfg, clock=lambda: datetime.now(timezone.utc), pause=timing.slee
         api = PublicationAPI(repo, cfg)
         journal = root/'dispatch'/(clock().astimezone(JST).date().isoformat()+'.json')
         result = request_once(api, journal, clock(), base, check_current)
-        run_id = await_publication(api, journal, result, base, clock, pause)
-        if journal.exists():
-            receipt = load_json(journal)
-            receipt.update(state='verified', verifiedAt=clock().isoformat(), workflowRunId=run_id)
-            write_json(journal, receipt)
-        phase('complete')
-        return {'status': 'published', 'publicationRunId': run_id, 'collectionReused': reused, 'sourceCommit': base,
+        publication = require_publication_result(
+            await_publication(api, journal, result, base, clock, pause), verified_only=True)
+        try:
+            if journal.exists():
+                receipt = load_json(journal)
+                receipt.update(state='verified' if publication['status'] == 'published' else 'observed',
+                    verifiedAt=clock().isoformat(), confirmedWorkflowRunId=publication['runId'],
+                    publicationStatus=publication['status'])
+                write_json(journal, receipt)
+            phase('complete')
+        except Exception:
+            # Receipt/log persistence can fail AFTER a verified deployment.
+            # Preserve the observed fact while still exiting with an error.
+            raise PublicationError('PUBLICATION_RECEIPT_SAVE_FAILED',
+                publication['status'], publication['runId']) from None
+        return {'status': publication['status'], 'publicationRunId': publication['runId'],
+            'publicationVerified': publication['verified'], 'collectionReused': reused, 'sourceCommit': base,
             'productsSha256': product_hash}
 
 
@@ -141,22 +165,38 @@ def main():
     if not args.apply:
         print('PLAN_ONLY: 06:10 collection, 06:30 daily, Sunday 06:40 weekly, 06:50 validated dispatch; no writes or network')
         return 0
-    log = None
+    log, result = None, None
     try:
         cfg = load_config(args.config)
         log = RunLog(cfg['runtime_dir']/'daily', lambda: datetime.now(timezone.utc))
         result = orchestrate(cfg, log=log)
-        log.finish('success')
+        publication = publication_result(result['status'], result['publicationRunId'])
+        if result.get('publicationVerified') is not True:
+            raise PipelineError('PUBLICATION_RESULT_UNCONFIRMED')
+        require_publication_result(publication, verified_only=True)
+        log.finish('success', publication=publication)
         print(json.dumps(result))
         return 0
     except Exception as exc:
         code = fixed_code(exc) if isinstance(exc, PipelineError) else 'INTERNAL_ERROR'
+        publication = None
+        if isinstance(result, dict) and result.get('publicationVerified') is True:
+            try:
+                publication = require_publication_result(
+                    publication_result(result.get('status'), result.get('publicationRunId')), verified_only=True)
+            except PipelineError:
+                publication = publication_failure(exc)
+        elif isinstance(exc, PublicationError) or (log and log.value['phase'] == 'publication'):
+            publication = publication_failure(exc)
         if log:
             try:
-                log.finish('failed', code)
+                log.finish('failed', code, publication=publication)
             except PipelineError:
                 code = 'RUN_LOG_UNAVAILABLE'
         print('WINDOWS_DAILY_STOPPED: '+code)
+        if publication:
+            print(json.dumps({'publicationStatus': publication['status'],
+                'publicationRunId': publication['runId'], 'publicationVerified': publication['verified']}))
         return 1
 
 

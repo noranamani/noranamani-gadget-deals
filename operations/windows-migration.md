@@ -268,3 +268,65 @@ GCMのトークンは子プロセスの標準出力からメモリ内だけで�
 ローカルでは既存回帰を含む205件、およびAPI応答仕様追従後の新規33件が成功した。PRの最終Windows/Ubuntu CIは別途結果を記録する。実API取得、本番mainへのデータ更新、実dispatch/Pages公開、タスク切替、クラウドタスク変更は行っていない。
 
 従来fixtureが変動する本番のtopPickCode/同週manifest/archiveをコピーしていたため、最新商品との不一致で本来の検査対象より前に停止するケースがあった。固定日曜/初回移行の一時fixtureを分離し、実運用側の厳格な検証は弱めていない。CIは既存のWindows/Ubuntuオフラインworkflowを使い、公開workflowは起動しない。
+
+## 2026-11-02: PR #4レビュー対応（本番未切替）
+
+### レビューの範囲と公開結果の修正
+
+[会話コメントの全5項目](https://github.com/noranamani/noranamani-gadget-deals/pull/4#issuecomment-6566277240)を確認した。追加のインライン指摘・レビュー提出は確認時点で0件。直前のWindows/Ubuntu CIは各206件成功（[run 41367026985](https://github.com/noranamani/noranamani-gadget-deals/actions/runs/41367026985)）。この既存206件を維持して回帰試験を追加する。前節の「成功終了」は、以下の公開結果の区別を含む意味に改める。
+
+従来はawait_publicationが既存公開を確認してNoneを返しても、orchestrateが無条件でpublishedを返した。publication_gateの成功判定から実際のrun IDを返すpublication_receiptを分離し、観測結果を必須の構造に変更した。既存のCLI向けpublication_neededはboolの契約を維持する。
+
+| publicationStatus | 確認条件 | Windows終了 |
+| --- | --- | --- |
+| published | dispatchのHTTP 200が返した数値run IDのPublish Pages成功 | 0 |
+| already_published | 今回の要求前から当日mainの公開成功が存在し、再確認できた | 0（新規公開とは報告しない） |
+| observed_other_run | 追加要求をせず監視した実行、または自分の受理IDと異なる実行の公開成功 | 0（他の実行による成功） |
+| observed_unattributed_run | 旧HTTP 204で自分の要求との帰属を断定できないが、特定run IDの公開成功は確認 | 0（自分の新規公開とは報告しない） |
+| unknown | 応答喪失、観測不可、タイムアウト、Pages試行の失敗/取消など到達結果が不明 | 1・自動再要求しない |
+| failed | 明示的な要求拒否、または観測したworkflowが終了し公開未試行/skipで他の成功もない | 1 |
+
+成功扱いには正の整数run IDとverified=trueが必要。None、run ID欠落、workflow全体のsuccessだけ、Publish Pagesのskipは成功の証拠にしない。API/権限が監視途中で失われても失敗を断定せずunknownとする。HTTP 204の候補が複数なら不明で停止する。[dispatch公式仕様](https://docs.github.com/en/rest/actions/workflows#create-a-workflow-dispatch-event)
+
+当日公開済みの記録は重複公開を止める証拠であり、今回作った商品世代をその実行が公開した証拠ではない。結果のsourceCommit/productsSha256は今回ローカルで検証した入力で、公開済みサイトの世代と同一とは断定しない。表示する公開実行IDのActions履歴で区別する。
+
+intentの受理workflowRunIdは他実行のIDで上書きせず、confirmedWorkflowRunId/publicationStatusを別に保存する。既存intentがあっても成功の読取確認は可能だが、未確認なら再dispatchしない。ログにもpublicationStatus/publicationRunId/publicationVerifiedを保存し、成功証拠なしのfinish(success)を拒否する。公開成功後のログ保存失敗は終了1としつつ、確認済みの公開事実を消して未公開とは報告しない。秘密値・任意例外・返却URLを記録しない。
+
+### 起動・通信の安定化と実設定の読取確認
+
+- 初期main取得だけ、10秒待ちを挟み最大3回の読み取り再試行を追加。起床直後のネットワーク復帰待ちを目的とする。各試行の前に06:10〜06:20を再確認し、期限外なら停止。Gitの不正SHA/形式エラーは再試行しない。商品取得、commit/push、dispatchは再試行しない。以降の通信障害も不明な書込みを再送せず停止する。
+- network_readiness段階を固定ログへ追加。二重起動ロック、日別dispatch intent、API予算、06:25収集期限、06:23:30以降の収集push禁止、Git競合停止、当日公開レシート、Actions concurrencyは維持する。失敗したログ・入力snapshot・intentを削除して成功したように再実行しない。
+- 同じ通常ユーザーのSID一致、楽天資格情報3件、Affiliate確認記録、非対話GCMの資格情報読取を確認。確認期限は11/20 14:37 JSTのまま、30日を延長していない。明示プロキシを使用する設定とTLS証明書/ホスト名検証有効、固定本番コード一致を確認。楽天APIと公開POSTは未通信。
+- 既存タスクは212件。対象は有効・Interactive・IgnoreNew・実行上限15分、StartWhenAvailable/WakeToRun/ネットワーク必須はいずれもfalse。11/2 06:10の最終結果0、次回11/3 06:10 JST。入口は旧run_windows_update.pyの収集だけで、新しい完結処理へは未変更。新入口には最大75分への変更が必要だが今回登録・設定変更はしない。AppDataではなくユーザープロファイル配下のOneDrive外の固定配置を維持する。
+
+### Windows Update後の無人復旧は未成立
+
+Interactiveはユーザーが既にログオンしている場合だけ動く。Windows Update等による再起動後、未ログオンなら起動できない（10/30に実例あり）。ネットワーク待ちだけでは解決しない。RDP切断はログオフと異なるが、切断セッションをポリシーでログオフする環境では同じ制約がある。
+
+非ログオン運用の候補は同じ通常ユーザーのPASSWORD方式であり、S4Uはネットワーク・暗号化ファイルに制限があるため採用しない。PASSWORDはタスク登録時に本人がWindows正規画面へパスワードを入力する必要があり、batch logon権限/組織ポリシー、Credential Manager/DPAPI、GCMの非対話認証、プロキシ・CAの実挙動を別環境で確認しなければならない。本人のブラウザログインや今回の対話ユーザーの読取成功を、非ログオン成功の証拠にしない。自動ログオン、パスワード平文保存、セキュリティ設定緩和は行わない。
+
+承認があれば、本番タスクを触らず、同ユーザーの一時PASSWORDタスクから資格情報/確認記録/GCM/HTTPSの読取りだけを試験し、本人承認のログオフ・再起動後にも確認、終了後に削除する。今回この試験は未実施。PASSWORD/S4Uは不要とした前節の方針は「ログオン維持運用の場合」に限る。再起動後も本人操作なしという最終要件に対しては未完了と判定する。
+
+[Microsoftのログオン種別仕様](https://learn.microsoft.com/en-us/windows/win32/api/taskschd/ne-taskschd-task_logon_type)、[タスクのセキュリティコンテキスト](https://learn.microsoft.com/en-us/windows/win32/taskschd/security-contexts-for-running-tasks)を参照。Windows Updateの無効化や再起動抑止ポリシーの変更は今回実施していない。ログオン維持運用を選ぶ場合も、更新後の再ログオン、AC給電/スリープ無効、証明書・プロキシ接続、06:10前の起動確認が運用条件として残る。
+
+### 11/8開始とnoteの分離・公開遅延時の復旧
+
+11/1分は生成日時/ハッシュを補完しない。11/8（日）の固定fixtureで06:10収集世代→06:30日次→06:40週次（11/2〜11/8）→06:50本文/PNG/ZIP・比較ページの生成と検証を追加試験する。fixtureの日付・確認期限は試験専用の値であり、本番データへ採用しない。過去の履歴/11/1記事を変更しない。翌平日の既存note再利用・欠落/遅延/不正ハッシュでの停止は既存試験も維持する。
+
+15分の監視期限を超えた場合はunknownで終了しintentを保全する。Actionsのrun ID/Publish Pages結果を読み取り確認し、実際の成功が分かれば再公開せず解決する。Pages到達が不明な試行を再実行してはならない。公開未試行で編集だけが遅れた場合は、既存07:15/07:45/08:15チェックが厳密な鮮度と世代条件を満たす間だけ回復する。3時間鮮度や成果物30分期限は緩和しない。全枠欠落や長時間のGitHub障害は自動成功を保証しない。
+
+このPRにはnote.comのログイン・投稿・投稿台帳更新を含めない。Windows/Actionsはnote用素材の生成・保存までを担当する。既存noranamani-note-cloudのセッション、投稿スケジュール、4つのゲート、重複防止と結果確認は別運用の受入れ条件であり、このテスト成功を実投稿の成功と扱わない。
+
+### 本番切替の残作業・停止条件
+
+1. 同じPR #4（hotfix/daily-publication-recovery → main）でWindows/Ubuntu CI・変更内容をレビューする。Draftを維持し今回はマージしない。main取り込み後のdevelopへのbackportも別途判断する。
+2. 既存ChatGPT編集が書き込まない状態とOracle停止を再確認。main、task XML、固定コード、個人用設定を独立バックアップし、復元確認する。承認済みコードを新しいOneDrive外の固定配置へ置く。
+3. ログオン維持運用か、別途試験済みPASSWORD運用かを本人が選択する。後者の未検証状態では完全無人運用を開始しない。承認後だけ既存タスクの入口/作業場所/75分上限を変更。StartWhenAvailableで時刻外に動いても収集開始条件を緩めない。
+4. freshな実取得・編集世代による最大1回の本番dispatch受入れ試験は別途承認する。HTTP受理、実行ID、実際のPublish Pages成功、公開済みnote素材、ローカルログを確認。現在の古い編集を使って試験しない。note.com実投稿は含めない。
+5. 11/8の実時刻・実データで初回監視し、以後の通常運転を判断する。コード/CI完了、本番設定完了、本番自動実行成功を別々に記録する。未知の公開結果、Git競合、履歴/世代不一致、認証/期限切れがあれば停止。時刻やハッシュを補完しない。
+
+切り戻しは新入口を停止し、保存した旧タスク/コードへ戻す承認操作とする（旧方式は収集のみ）。公開済みサイトは最後の正常状態を維持し、価格履歴・公開履歴・note投稿台帳を初期化せず、mainへreset/force pushしない。今回、本番タスク・コード配置・設定・データ、Pages設定/Variable、note-cloudは変更しない。
+
+### 検証記録
+
+既存206件に、公開の所有者と証拠、None拒否、既存公開/他実行/204、不明/失敗の固定ログ、監視タイムアウト、公開後のログ/receipt保存失敗、初期Git読取復帰・期限超過、11/8の正規順序を検証する30件を追加。計236件を対象にする。ローカルWindows実行と、同じPRのWindows/Ubuntu CIの最終結果・コミットSHAはPR本文へ記録する。本番dispatch/Pages公開、PASSWORD試験、note.com投稿は未実施。

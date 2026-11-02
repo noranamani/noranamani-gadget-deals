@@ -7,10 +7,43 @@ import urllib.error
 import urllib.request
 from datetime import datetime, time, timezone
 from pipeline_common import JST, PipelineError, write_json, timestamp
-from publication_gate import NoRedirect, publication_needed
+from publication_gate import NoRedirect, publication_needed, publication_receipt
 
 REPOSITORY = 'noranamani/noranamani-gadget-deals'
 WORKFLOW = 'windows-daily-publish.yml'
+VERIFIED_STATUSES = {'published', 'already_published', 'observed_other_run', 'observed_unattributed_run'}
+
+
+def publication_result(status, run_id=None):
+    if type(status) is not str or status not in VERIFIED_STATUSES | {'unknown', 'failed'} or (
+            run_id is not None and (type(run_id) is not int or run_id <= 0)):
+        raise PipelineError('PUBLICATION_RESULT_INVALID')
+    verified = status in VERIFIED_STATUSES
+    if verified and run_id is None:
+        raise PipelineError('PUBLICATION_RESULT_UNCONFIRMED')
+    return {'status': status, 'runId': run_id, 'verified': verified}
+
+
+def require_publication_result(value, *, verified_only=False):
+    if (not isinstance(value, dict) or set(value) != {'status', 'runId', 'verified'}
+            or type(value.get('verified')) is not bool
+            or value != publication_result(value.get('status'), value.get('runId'))
+            or (verified_only and value['status'] not in VERIFIED_STATUSES)):
+        raise PipelineError('PUBLICATION_RESULT_UNCONFIRMED')
+    return value
+
+
+class PublicationError(PipelineError):
+    def __init__(self, code, status='unknown', run_id=None):
+        super().__init__(code)
+        self.publication = publication_result(status, run_id)
+
+
+def publication_failure(error):
+    if isinstance(error, PublicationError):
+        return require_publication_result(error.publication)
+    # A local/transport error during observation cannot prove that Pages failed.
+    return publication_result('unknown')
 
 
 class PublicationAPI:
@@ -58,7 +91,9 @@ class PublicationAPI:
                 return value
         except urllib.error.HTTPError as exc:
             if exc.code in (401, 403, 404):
-                raise PipelineError('PUBLICATION_API_PERMISSION_REQUIRED') from None
+                error = (PublicationError('PUBLICATION_API_PERMISSION_REQUIRED', 'failed') if body is not None
+                    else PipelineError('PUBLICATION_API_PERMISSION_REQUIRED'))
+                raise error from None
             raise PipelineError('PUBLICATION_DISPATCH_UNCERTAIN' if body is not None
                 else 'PUBLICATION_STATE_UNAVAILABLE') from None
         except Exception:
@@ -76,6 +111,8 @@ def request_once(api, journal, now, source_commit, check_current=lambda: None):
     if now.astimezone(JST).time() < time(6, 50):
         raise PipelineError('BEFORE_PUBLICATION_WINDOW')
     if journal.exists():
+        if publication_receipt(api.get, now) is not None:
+            return 'already_published'
         raise PipelineError('PUBLICATION_ALREADY_REQUESTED')
     start = datetime.combine(now.astimezone(JST).date(), time.min, JST).astimezone(timezone.utc)
     import urllib.parse
@@ -110,8 +147,13 @@ def await_publication(api, journal, outcome, source_commit, clock, pause, monoto
     from pipeline_common import load_json, timestamp
     started = clock()
     steady_started = monotonic()
+    if outcome not in {'already_published', 'requested', 'publication_in_progress'}:
+        raise PublicationError('PUBLICATION_RESULT_INVALID', 'failed')
     if outcome == 'already_published':
-        return None
+        receipt = publication_receipt(api.get, started)
+        if receipt is None:
+            raise PublicationError('PUBLICATION_RESULT_UNCONFIRMED')
+        return publication_result('already_published', receipt['runId'])
     intent = load_json(journal) if outcome == 'requested' else None
     selected = intent.get('workflowRunId') if intent else None
     for _ in range(45):
@@ -137,15 +179,16 @@ def await_publication(api, journal, outcome, source_commit, clock, pause, monoto
                 candidates = [r for r in rows if r.get('head_branch') == 'main'
                     and r.get('status') in ('queued', 'in_progress', 'waiting', 'pending', 'requested')]
                 if not candidates:
-                    if not publication_needed(api.get, now):
-                        return None
-                    raise PipelineError('PUBLICATION_EXECUTION_FAILED')
+                    receipt = publication_receipt(api.get, now)
+                    if receipt is not None:
+                        return publication_result('observed_other_run', receipt['runId'])
+                    raise PublicationError('PUBLICATION_EXECUTION_FAILED', 'failed')
             if candidates:
                 selected = candidates[0]['id']
         if selected is not None:
             run = api.get('actions/runs/'+str(selected))
             if run.get('head_branch') != 'main' or (intent and run.get('head_sha') != source_commit):
-                raise PipelineError('PUBLICATION_SOURCE_CHANGED')
+                raise PublicationError('PUBLICATION_SOURCE_CHANGED', 'unknown', selected)
             if run.get('status') == 'completed':
                 jobs = api.get('actions/runs/'+str(selected)+'/jobs?filter=all&per_page=100')
                 if jobs.get('total_count', len(jobs['jobs'])) > 100:
@@ -157,8 +200,22 @@ def await_publication(api, journal, outcome, source_commit, clock, pause, monoto
                         if step.get('name') != 'Publish Pages' or step.get('conclusion') == 'skipped':
                             continue
                         if step.get('conclusion') == 'success':
-                            return selected
-                        raise PipelineError('PUBLICATION_DEPLOYMENT_UNCERTAIN')
-                raise PipelineError('PUBLICATION_EXECUTION_FAILED')
+                            # Only a 200 response containing this run ID proves
+                            # ownership. A unique legacy-204 candidate can still
+                            # be a simultaneous manual dispatch by another actor.
+                            status = ('published' if intent and intent.get('workflowRunId') == selected
+                                else 'observed_unattributed_run' if intent else 'observed_other_run')
+                            return publication_result(status, selected)
+                        raise PublicationError('PUBLICATION_DEPLOYMENT_UNCERTAIN', 'unknown', selected)
+                # The requested workflow can finish with Publish Pages skipped
+                # because a competing scheduled run won the same-day receipt.
+                receipt = publication_receipt(api.get, now, fail_on_uncertain=False)
+                if receipt is not None and receipt['runId'] != selected:
+                    return publication_result('observed_other_run', receipt['runId'])
+                raise PublicationError('PUBLICATION_EXECUTION_FAILED', 'failed', selected)
+        elif intent:
+            receipt = publication_receipt(api.get, now, fail_on_uncertain=False)
+            if receipt is not None:
+                return publication_result('observed_other_run', receipt['runId'])
         pause(20)
-    raise PipelineError('PUBLICATION_RESULT_UNCONFIRMED')
+    raise PublicationError('PUBLICATION_RESULT_UNCONFIRMED', 'unknown', selected)
