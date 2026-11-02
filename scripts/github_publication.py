@@ -189,7 +189,7 @@ def await_publication(api, journal, outcome, source_commit, clock, pause, monoto
             run = api.get('actions/runs/'+str(selected))
             if run.get('head_branch') != 'main' or (intent and run.get('head_sha') != source_commit):
                 raise PublicationError('PUBLICATION_SOURCE_CHANGED', 'unknown', selected)
-            if run.get('status') == 'completed':
+            if run.get('status') in ('completed', 'in_progress'):
                 jobs = api.get('actions/runs/'+str(selected)+'/jobs?filter=all&per_page=100')
                 if jobs.get('total_count', len(jobs['jobs'])) > 100:
                     raise PipelineError('PUBLICATION_STATE_PAGINATION_LIMIT')
@@ -206,13 +206,16 @@ def await_publication(api, journal, outcome, source_commit, clock, pause, monoto
                             status = ('published' if intent and intent.get('workflowRunId') == selected
                                 else 'observed_unattributed_run' if intent else 'observed_other_run')
                             return publication_result(status, selected)
+                        if step.get('conclusion') is None and run.get('status') != 'completed':
+                            continue  # Pages is still running; no success or failure inferred.
                         raise PublicationError('PUBLICATION_DEPLOYMENT_UNCERTAIN', 'unknown', selected)
                 # The requested workflow can finish with Publish Pages skipped
                 # because a competing scheduled run won the same-day receipt.
-                receipt = publication_receipt(api.get, now, fail_on_uncertain=False)
-                if receipt is not None and receipt['runId'] != selected:
-                    return publication_result('observed_other_run', receipt['runId'])
-                raise PublicationError('PUBLICATION_EXECUTION_FAILED', 'failed', selected)
+                if run.get('status') == 'completed':
+                    receipt = publication_receipt(api.get, now, fail_on_uncertain=False)
+                    if receipt is not None and receipt['runId'] != selected:
+                        return publication_result('observed_other_run', receipt['runId'])
+                    raise PublicationError('PUBLICATION_EXECUTION_FAILED', 'failed', selected)
         elif intent:
             receipt = publication_receipt(api.get, now, fail_on_uncertain=False)
             if receipt is not None:

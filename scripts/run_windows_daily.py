@@ -38,6 +38,8 @@ def edit_snapshot(root, kind, now, policy):
     _, _, status, _ = validate_collection(root, now)
     filename = 'data/editorial.json' if kind == 'editorial' else 'data/note-weekly.json'
     old = load_json(root/filename)  # malformed/missing existing JSON is a stop, not reset.
+    if not isinstance(old, dict):
+        raise PipelineError('EDITORIAL_SCHEMA_INVALID' if kind == 'editorial' else 'NOTE_EDITORIAL_SCHEMA_INVALID')
     if timestamp(old.get('generatedAt')) > now:
         raise PipelineError('EDITORIAL_GENERATION_MISMATCH')
     same = old.get('sourceProductsSha256') == status['productsSha256']
@@ -63,6 +65,21 @@ def fetch_main_ready(repo, clock, pause):
             if str(exc) not in {'GIT_COMMAND_FAILED', 'GIT_UNAVAILABLE_OR_TIMEOUT'} or attempt == 2:
                 raise
             pause(10)
+
+
+def isolated_note_error(error):
+    """Only known note/input/build validation failures are isolated from Pages.
+
+    Git conflicts, uncertain writes, secrets and unexpected failures still stop.
+    Collection and daily inputs are validated outside this catch boundary.
+    """
+    if not isinstance(error, PipelineError) or not (str(error).startswith('NOTE_') or str(error) in {
+            'JSON_INVALID', 'JSON_DUPLICATE_KEY', 'JSON_NONFINITE', 'TIMESTAMP_INVALID',
+            'INPUT_UNAVAILABLE', 'EDITORIAL_GENERATION_MISMATCH',
+            'BUILD_OR_VALIDATION_FAILED', 'BUILD_UNAVAILABLE_OR_TIMEOUT'}):
+        raise error
+    code = fixed_code(error)
+    return code if code != 'PIPELINE_ERROR' else 'NOTE_VALIDATION_FAILED'
 
 
 def orchestrate(cfg, clock=lambda: datetime.now(timezone.utc), pause=timing.sleep, log=None):
@@ -114,11 +131,18 @@ def orchestrate(cfg, clock=lambda: datetime.now(timezone.utc), pause=timing.slee
         if files:
             commit = repo.prepare_commit(base, files, 'editorial')
             repo.push_if_unchanged(base, commit, before_push=lambda: validate_daily(source, clock()))
+        note_status, note_code = 'not_due', None
         if clock().astimezone(JST).weekday() == 6:
+            note_status = 'pending'
             phase('weekly_editorial')
             wait_until((6, 40), clock, pause)
             base, source = snapshot('weekly', product_hash)
-            files = edit_snapshot(source, 'weekly_editorial', clock(), policy)
+            validate_daily(source, clock())
+            try:
+                files = edit_snapshot(source, 'weekly_editorial', clock(), policy)
+            except PipelineError as exc:
+                note_code = isolated_note_error(exc)
+                note_status, files = 'blocked', {}
             if files:
                 commit = repo.prepare_commit(base, files, 'weekly_editorial')
                 repo.push_if_unchanged(base, commit, before_push=lambda: validate_publication(source, clock()))
@@ -126,11 +150,22 @@ def orchestrate(cfg, clock=lambda: datetime.now(timezone.utc), pause=timing.slee
         phase('build')
         base, source = snapshot('publication', product_hash)
         output = run/'publication-output'
-        prepare_publication(source, output, base, clock())
+        prepare_publication(source, output, base, clock(), purpose='site')
         verify_bundle(output/'bundle', clock())
+        if note_status == 'pending':
+            try:
+                note_output = run/'note-preview'
+                prepare_publication(source, note_output, base, clock(), purpose='note')
+                verify_bundle(note_output/'bundle', clock())
+                note_status = 'validated'
+            except PipelineError as exc:
+                note_code = isolated_note_error(exc)
+                note_status = 'blocked'
+        if log:
+            log.note_preview(note_status, note_code)
         phase('publication')
         def check_current():
-            validate_publication(source, clock())
+            validate_daily(source, clock())
             if repo.remote_tip() != base:
                 raise PipelineError('PUBLICATION_SOURCE_CHANGED')
         check_current()
@@ -154,7 +189,7 @@ def orchestrate(cfg, clock=lambda: datetime.now(timezone.utc), pause=timing.slee
                 publication['status'], publication['runId']) from None
         return {'status': publication['status'], 'publicationRunId': publication['runId'],
             'publicationVerified': publication['verified'], 'collectionReused': reused, 'sourceCommit': base,
-            'productsSha256': product_hash}
+            'productsSha256': product_hash, 'weeklyNotePreviewStatus': note_status, 'weeklyNoteCode': note_code}
 
 
 def main():

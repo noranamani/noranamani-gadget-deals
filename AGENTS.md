@@ -13,7 +13,7 @@ Git競合は停止し、同じ商品世代の有効な既存編集は再利用�
 1. 06:10 JST: Windowsの専用Python処理が楽天APIを取得し、履歴保全・世代検証後に3データファイルを単一コミットで反映する。
 2. 06:30 JST: 承認後のWindows完結処理が data/editorial.json だけを更新する。
 3. 日曜06:40 JST: 同じWindows処理が data/note-weekly.json だけを更新する。
-4. 06:50 JST: Windowsで記事/サイト/画像/ZIPを一時生成・検証後、既存Actionsへ一度だけ起動依頼する。Actionsが再検証してPagesデプロイし、日曜はnote生成物をmainへ保存する。Windowsは実際のPublish Pages成功を確認して終了する。
+4. 06:50 JST: 当日の商品/履歴/日次編集を検証してサイトを一時生成し、既存Actionsへ一度だけ起動依頼する。日次Pages公開は週次noteの有無に依存しない。日曜のnote本文/画像/ZIPは別の厳格な検証で生成し、ActionsはPagesデプロイ終了後に独立して保存する。Windowsは実際のPublish Pages成功を確認し、noteプレビュー結果と区別して記録する。
 
 楽天APIは登録済み出口IPのWindowsだけから取得する。クラウド編集タスク・Actionsは楽天APIを呼ばない。新しい編集タスクは追加しない。旧Oracleシェルは誤実行防止で停止する。
 
@@ -92,6 +92,8 @@ editorialOwner=windowsなら、既存のChatGPT週次タスクは変更・commit
 2. 根拠データだけを使って `data/note-weekly.json` だけを更新する。
 3. 日曜 06:50 の GitHub Actions 最終生成処理で `scripts/build_note_article.py` を実行し、note投稿バッチ v0.3 互換のファイルを `note/latest/` に生成する。
 4. この処理はnote投稿を実施しない。既存投稿バッチ・投稿台帳は維持し、有効化や投稿は別途ユーザー承認を受ける。
+
+日次サイトはpublication_pipeline.pyのpurpose=site、日曜素材はpurpose=noteで生成・検証する。noteの欠落/不正は素材生成を停止し、過去データを補完・上書きしない。商品/履歴/日次の不正、秘密情報、Git競合、不明な書込みはサイト側も停止する。note.com実投稿はnoranamani-note-cloudの独立した運用とし、Pages成功を投稿成功と扱わない。
 
 ### Weekly note editorial rules
 - 値下がり候補がない週は無理に「特価」「セール」と書かず、「価格ウォッチ」「価格履歴を蓄積中」など事実に合う表現にする。

@@ -13,7 +13,7 @@ from datetime import datetime, time, timezone
 from pathlib import Path
 
 from pipeline_common import JST, PipelineError, timestamp
-from publication_pipeline import validate_publication
+from publication_pipeline import validate_publication, validate_site_publication
 
 WORKFLOW = 'windows-daily-publish.yml'
 DEPLOY_STEP = 'Publish Pages'
@@ -100,17 +100,18 @@ def github_reader(repository: str, token: str):
     return get
 
 
-def gate(root: Path, now: datetime, get) -> bool:
+def gate(root: Path, now: datetime, get, *, site_only=False) -> bool:
     # Never make an early trigger publish before the intended publication slot.
     if now.astimezone(JST).time() < time(6, 50):
         raise PipelineError('BEFORE_PUBLICATION_WINDOW')
-    validate_publication(root, now)  # same strict freshness, category and hash rules
+    (validate_site_publication if site_only else validate_publication)(root, now)
     return publication_needed(get, now)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, required=True)
+    parser.add_argument('--site-only', action='store_true')
     args = parser.parse_args()
     try:
         now = datetime.now(timezone.utc)
@@ -122,7 +123,7 @@ def main():
         # Re-run today's attempts only; an old run is not a new daily receipt.
         if timestamp(run.get('created_at')).astimezone(JST).date() != now.astimezone(JST).date():
             raise PipelineError('PUBLICATION_RUN_WRONG_DAY')
-        needed = gate(args.root, now, get)
+        needed = gate(args.root, now, get, site_only=args.site_only)
         value = 'true' if needed else 'false'
         print('publish=' + value)
         if os.environ.get('GITHUB_OUTPUT'):

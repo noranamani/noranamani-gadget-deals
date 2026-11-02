@@ -17,8 +17,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     outputs:
-      source_commit: ${{ steps.prepare.outputs.source_commit }}
+      source_commit: ${{ steps.snapshot.outputs.source_commit }}
       publish: ${{ steps.gate.outputs.publish }}
+      weekday_jst: ${{ steps.snapshot.outputs.weekday_jst }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -27,16 +28,21 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '3.12'
+      - id: snapshot
+        shell: bash
+        run: |
+          echo "source_commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "weekday_jst=$(TZ=Asia/Tokyo date +%u)" >> "$GITHUB_OUTPUT"
       - id: gate
         name: Require current editorial and no successful publication today
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python -X utf8 scripts/publication_gate.py --root "$GITHUB_WORKSPACE"
+        run: python -X utf8 scripts/publication_gate.py --root "$GITHUB_WORKSPACE" --site-only
       - id: prepare
         if: steps.gate.outputs.publish == 'true'
         shell: bash
         run: |
-          python -X utf8 scripts/publication_pipeline.py prepare --root "$GITHUB_WORKSPACE" --output "$RUNNER_TEMP/publication" --source-commit "$(git rev-parse HEAD)"
+          python -X utf8 scripts/publication_pipeline.py prepare --purpose site --root "$GITHUB_WORKSPACE" --output "$RUNNER_TEMP/publication" --source-commit "$(git rev-parse HEAD)"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: steps.gate.outputs.publish == 'true'
         with:
@@ -44,34 +50,33 @@ jobs:
           path: ${{ runner.temp }}/publication/bundle
           if-no-files-found: error
           retention-days: 2
-  persist-note:
-    if: ${{ needs.prepare.outputs.publish == 'true' && vars.WINDOWS_PIPELINE_ENABLED == 'true' && github.ref == 'refs/heads/main' }}
-    needs: prepare
+  weekly-note:
+    # Wait for deployment to finish before any note commit can advance main.
+    # Its success is independent of Pages, and weekday publication needs no note.
+    if: ${{ always() && needs.prepare.result == 'success' && needs.prepare.outputs.weekday_jst == '7' && vars.WINDOWS_PIPELINE_ENABLED == 'true' && github.ref == 'refs/heads/main' }}
+    needs: [prepare, deploy]
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     permissions:
       contents: write
-    outputs:
-      published_commit: ${{ steps.persist.outputs.published_commit }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ needs.prepare.outputs.source_commit }}
+          ref: main
           fetch-depth: 0
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '3.12'
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
-        with:
-          name: validated-publication
-          path: ${{ runner.temp }}/publication
+      - name: Prepare strictly validated Sunday note materials
+        shell: bash
+        run: python -X utf8 scripts/publication_pipeline.py prepare --purpose note --root "$GITHUB_WORKSPACE" --output "$RUNNER_TEMP/weekly-note" --source-commit "$(git rev-parse HEAD)"
       - id: persist
         env:
           GADGET_PUBLICATION_ENABLED: '1'
-        run: python -X utf8 scripts/publication_pipeline.py persist-note --root "$GITHUB_WORKSPACE" --bundle "$RUNNER_TEMP/publication" --apply
+        run: python -X utf8 scripts/publication_pipeline.py persist-note --purpose note --root "$GITHUB_WORKSPACE" --bundle "$RUNNER_TEMP/weekly-note/bundle" --apply
   deploy:
     if: ${{ needs.prepare.outputs.publish == 'true' && vars.WINDOWS_PIPELINE_ENABLED == 'true' && github.ref == 'refs/heads/main' }}
-    needs: [prepare, persist-note]
+    needs: prepare
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -85,7 +90,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ needs.persist-note.outputs.published_commit }}
+          ref: ${{ needs.prepare.outputs.source_commit }}
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
@@ -95,13 +100,13 @@ jobs:
           name: validated-publication
           path: ${{ runner.temp }}/publication
       - env:
-          EXPECTED_MAIN: ${{ needs.persist-note.outputs.published_commit }}
-        run: python -X utf8 scripts/publication_pipeline.py verify-current --root "$GITHUB_WORKSPACE" --bundle "$RUNNER_TEMP/publication" --expected-main "$EXPECTED_MAIN"
+          EXPECTED_MAIN: ${{ needs.prepare.outputs.source_commit }}
+        run: python -X utf8 scripts/publication_pipeline.py verify-current --purpose site --root "$GITHUB_WORKSPACE" --bundle "$RUNNER_TEMP/publication" --expected-main "$EXPECTED_MAIN"
       - id: gate
         name: Recheck freshness and successful publication before deployment
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python -X utf8 scripts/publication_gate.py --root "$GITHUB_WORKSPACE"
+        run: python -X utf8 scripts/publication_gate.py --root "$GITHUB_WORKSPACE" --site-only
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
         if: steps.gate.outputs.publish == 'true'
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
@@ -111,15 +116,15 @@ jobs:
       - name: Final artifact expiry and main check
         if: steps.gate.outputs.publish == 'true'
         env:
-          EXPECTED_MAIN: ${{ needs.persist-note.outputs.published_commit }}
-        run: python -X utf8 scripts/publication_pipeline.py verify-current --root "$GITHUB_WORKSPACE" --bundle "$RUNNER_TEMP/publication" --expected-main "$EXPECTED_MAIN"
+          EXPECTED_MAIN: ${{ needs.prepare.outputs.source_commit }}
+        run: python -X utf8 scripts/publication_pipeline.py verify-current --purpose site --root "$GITHUB_WORKSPACE" --bundle "$RUNNER_TEMP/publication" --expected-main "$EXPECTED_MAIN"
       - id: deployment
         name: Publish Pages
         if: steps.gate.outputs.publish == 'true'
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
   report:
     if: ${{ always() && vars.WINDOWS_PIPELINE_ENABLED == 'true' && github.ref == 'refs/heads/main' }}
-    needs: [prepare, persist-note, deploy]
+    needs: [prepare, weekly-note, deploy]
     runs-on: ubuntu-latest
     permissions: {}
     timeout-minutes: 2
@@ -127,13 +132,17 @@ jobs:
       - name: Report blocked publication without exposing data
         env:
           PREPARE_RESULT: ${{ needs.prepare.result }}
-          NOTE_RESULT: ${{ needs.persist-note.result }}
+          NOTE_RESULT: ${{ needs.weekly-note.result }}
           DEPLOY_RESULT: ${{ needs.deploy.result }}
           PUBLISH_NEEDED: ${{ needs.prepare.outputs.publish }}
         run: |
           echo '## Gadget publication check' >> "$GITHUB_STEP_SUMMARY"
           echo "prepare=$PREPARE_RESULT note=$NOTE_RESULT deploy=$DEPLOY_RESULT" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$PREPARE_RESULT" != success ] || { [ "$PUBLISH_NEEDED" = true ] && { [ "$NOTE_RESULT" != success ] || [ "$DEPLOY_RESULT" != success ]; }; }; then
+          if [ "$PREPARE_RESULT" != success ] || { [ "$PUBLISH_NEEDED" = true ] && [ "$DEPLOY_RESULT" != success ]; }; then
             echo '::error::Publication blocked. Review fixed error codes; do not rewrite timestamps or hashes. Later scheduled checks can recover missing editorial, but ambiguous deployment needs review.'
+            exit 1
+          fi
+          if [ "$NOTE_RESULT" = failure ] || [ "$NOTE_RESULT" = cancelled ]; then
+            echo '::error::Weekly note materials blocked. Pages result is independent; do not post an old issue.'
             exit 1
           fi

@@ -70,6 +70,11 @@ class ResultTests(unittest.TestCase):
         self.intent()
         self.assertEqual(self.observe('requested'), publication_result('published', 51))
 
+    def test_pages_success_is_confirmed_while_independent_note_job_still_runs(self):
+        self.intent()
+        self.rows = [self.row(51, 'in_progress')]
+        self.assertEqual(self.observe('requested'), publication_result('published', 51))
+
     def test_legacy_204_unique_candidate_proves_publication_but_not_ownership(self):
         self.intent(None)
         self.assertEqual(self.observe('requested'), publication_result('observed_unattributed_run', 51))
@@ -324,7 +329,9 @@ class IntegrationTests(unittest.TestCase):
         self.assertTrue(validate_publication(fixture.root, NOW)['includeNote'])
         bundle = next((fixture.cfg['runtime_dir']/'daily/runs').glob('*/publication-output/bundle'))
         verify_bundle(bundle, NOW)
-        self.assertTrue((bundle/'note/archive/2026-11-08/article.md').exists())
+        note_bundle = next((fixture.cfg['runtime_dir']/'daily/runs').glob('*/note-preview/bundle'))
+        verify_bundle(note_bundle, NOW)
+        self.assertTrue((note_bundle/'note/archive/2026-11-08/article.md').exists())
 
 
 if __name__ == '__main__':

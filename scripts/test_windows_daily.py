@@ -218,7 +218,9 @@ class OrchestrationTests(unittest.TestCase):
             self.assertEqual(digest(self.root/name), old)
         bundles = list((self.cfg['runtime_dir']/'daily/runs').glob('*/publication-output/bundle'))
         self.assertEqual(len(bundles), 1)
-        self.assertEqual((bundles[0]/'note/latest/article-cover.png').read_bytes()[:8], b'\x89PNG\r\n\x1a\n')
+        note_bundle = next((self.cfg['runtime_dir']/'daily/runs').glob('*/note-preview/bundle'))
+        self.assertEqual((note_bundle/'note/latest/article-cover.png').read_bytes()[:8], b'\x89PNG\r\n\x1a\n')
+        self.assertFalse((bundles[0]/'note').exists())
         for category in load_json(self.root/'config/queries.json'):
             self.assertTrue((bundles[0]/'docs'/('category-'+category['id']+'.html')).exists())
         self.assertGreaterEqual(len(list((bundles[0]/'docs').glob('comparison-*.html'))), 5)
@@ -233,7 +235,7 @@ class OrchestrationTests(unittest.TestCase):
 
     def test_following_weekday_preserves_sunday_note_without_weekly_rewrite(self):
         self.run_pipeline()
-        bundle = next((self.cfg['runtime_dir']/'daily/runs').glob('*/publication-output/bundle'))
+        bundle = next((self.cfg['runtime_dir']/'daily/runs').glob('*/note-preview/bundle'))
         shutil.copytree(bundle/'note', self.root/'note', dirs_exist_ok=True)  # simulate validated Actions persistence
         old_note = {p.relative_to(self.root): digest(p) for p in (self.root/'note').rglob('*') if p.is_file()}
         weekly_hash = digest(self.root/'data/note-weekly.json')
@@ -249,15 +251,14 @@ class OrchestrationTests(unittest.TestCase):
         for p, sha in old_note.items():
             self.assertEqual(digest(self.root/p), sha)
 
-    def test_weekday_with_missing_current_sunday_note_stops_instead_of_backdating(self):
+    def test_weekday_with_missing_current_sunday_note_publishes_site_without_backdating(self):
         self.current = fixtures.SUNDAY.replace(hour=6, minute=10)+timedelta(days=1)
         self.fixture.edit('products.json', updatedAt=self.current.isoformat())
         self.fixture.edit('collection-status.json', collectedAt=self.current.isoformat(),
             productsSha256=digest(self.root/'data/products.json'))
         before = digest(self.root/'data/note-weekly.json')
-        with self.assertRaisesRegex(PipelineError, 'NOTE_WEEK'):
-            self.run_pipeline()
-        self.api.dispatch.assert_not_called()
+        self.assertEqual(self.run_pipeline()['status'], 'published')
+        self.api.dispatch.assert_called_once()
         self.assertEqual(digest(self.root/'data/note-weekly.json'), before)
 
     def test_duplicate_runner_stops_before_collection_or_git(self):

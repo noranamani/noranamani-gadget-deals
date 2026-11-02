@@ -19,6 +19,7 @@ CODES = {'GIT_COMMAND_FAILED', 'GIT_UNAVAILABLE_OR_TIMEOUT', 'PUSH_CONFLICT',
     'PUBLICATION_STATE_PAGINATION_LIMIT',
     'PUBLICATION_RESULT_INVALID',
     'PUBLICATION_RECEIPT_SAVE_FAILED',
+    'NOTE_VALIDATION_FAILED',
     'SECRET_IN_OUTPUT', 'JSON_INVALID', 'JSON_DUPLICATE_KEY', 'INPUT_UNAVAILABLE',
     'EDITORIAL_TOP_PICK_INVALID', 'EDITORIAL_CATEGORY_COVERAGE_INVALID',
     'HISTORY_OBJECT_REQUIRED', 'HISTORY_SCHEMA_INVALID', 'HISTORY_FROM_FUTURE',
@@ -41,7 +42,8 @@ class RunLog:
         self.path = root / 'logs' / (uuid.uuid4().hex+'.json')
         self.value = {'schemaVersion': 1, 'startedAt': clock().isoformat(),
             'phase': 'startup', 'status': 'running', 'code': None,
-            'publicationStatus': 'not_attempted', 'publicationRunId': None, 'publicationVerified': False}
+            'publicationStatus': 'not_attempted', 'publicationRunId': None, 'publicationVerified': False,
+            'weeklyNotePreviewStatus': 'not_due', 'weeklyNoteCode': None}
         self.save()
 
     def save(self):
@@ -67,4 +69,11 @@ class RunLog:
             value = require_publication_result(publication, verified_only=status == 'success')
             self.value.update(publicationStatus=value['status'], publicationRunId=value['runId'],
                 publicationVerified=value['verified'])
+        self.save()
+
+    def note_preview(self, status, code=None):
+        if status not in {'not_due', 'pending', 'validated', 'blocked'}:
+            raise PipelineError('RUN_LOG_STATUS_INVALID')
+        self.value.update(weeklyNotePreviewStatus=status,
+            weeklyNoteCode=fixed_code(code) if code is not None else None)
         self.save()
