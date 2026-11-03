@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-11-02T21:10:03.680602Z",
-  "sourceCommit": "b92566c8c42417d5e8e708840738d7dcded8fa53",
-  "productsSha256": "56beebb665415c09f775e948867e1bfec148f9831f17b8824127c65f0f274052",
-  "historySha256": "8ca01d1d69136f3a449dd6996d0bcf008b0ff8b5a1f56ed7d4341cdb42a1f313",
+  "collectedAt": "2026-11-03T21:10:03.458889Z",
+  "sourceCommit": "4740a7e4725c6e60436b55c1d46ef9f7c8e33823",
+  "productsSha256": "769c5110cb73de8bc517b2cdd9044b57cc3fdadde49d635ff28a6d4bef37ff9c",
+  "historySha256": "913cb285758875ddbf9d88c38a7a01e88d101dbccc3d55fce9469981487fa062",
   "queriesSha256": "d2810371919a8bf7f5cfa1afc8f705ef3d788de420a9361d4b014e025d00fb8a",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
@@ -11,12 +11,12 @@
   "categories": [
     {
       "id": "usb-charger",
-      "fetchedUnique": 53,
+      "fetchedUnique": 52,
       "displayed": 18
     },
     {
       "id": "wireless-charger",
-      "fetchedUnique": 50,
+      "fetchedUnique": 49,
       "displayed": 18
     },
     {
@@ -51,9 +51,9 @@
     }
   ],
   "historyPreservation": {
-    "previousKeys": 498,
-    "previousRecords": 6149,
-    "currentKeys": 502,
-    "currentRecords": 6557
+    "previousKeys": 502,
+    "previousRecords": 6557,
+    "currentKeys": 503,
+    "currentRecords": 6963
   }
 }
