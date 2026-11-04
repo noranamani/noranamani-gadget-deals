@@ -58,7 +58,7 @@ def notify_once(now: datetime, *, run_id: str, reason: str, token: str,
     body = '\n'.join([
         'GitHub Actionsの定期補完で、当日分のサイト公開または週次素材に要確認の状態を検出しました。',
         '',
-        '- 判定コード: \`' + reason + '\`',
+        '- 判定コード: `' + reason + '`',
         '- 確認対象: ' + run,
         '',
         '**注意:** この通知は公開成功の証拠ではありません。',
