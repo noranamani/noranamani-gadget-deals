@@ -116,7 +116,8 @@ class PublicationAPI:
         return self.call('actions/workflows/'+WORKFLOW+'/dispatches', {'ref': 'main'})
 
 
-def request_once(api, journal, now, source_commit, check_current=lambda: None):
+def request_once(api, journal, now, source_commit, check_current=lambda: None,
+        before_intent=lambda: None, after_intent=lambda: None):
     if now.astimezone(JST).time() < time(6, 50):
         raise PipelineError('BEFORE_PUBLICATION_WINDOW')
     if journal.exists():
@@ -137,10 +138,16 @@ def request_once(api, journal, now, source_commit, check_current=lambda: None):
     if not publication_needed(api.get, now):
         return 'already_published'
     check_current()
+    # A preflight GET is not a write attempt. Begin the persistent write stage
+    # only after every read-only gate passes, immediately before saving intent.
+    before_intent()
     # Persist intent BEFORE sending. A lost response never causes an automatic retry.
     write_json(journal, {'schemaVersion': 1, 'state': 'requested',
         'requestedAt': now.isoformat(), 'sourceCommit': source_commit,
         'previousRunIds': [r['id'] for r in rows]})
+    # From here onward recovery is observation-only. Even a failed checkpoint
+    # leaves a durable intent and can never cause an automatic second dispatch.
+    after_intent()
     receipt = api.dispatch()
     if isinstance(receipt, dict) and type(receipt.get('workflowRunId')) is int and receipt['workflowRunId'] > 0:
         from pipeline_common import load_json
