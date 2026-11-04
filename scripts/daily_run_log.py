@@ -53,7 +53,8 @@ class RunLog:
         self.value = {'schemaVersion': 1, 'startedAt': clock().isoformat(),
             'phase': 'startup', 'status': 'running', 'code': None,
             'publicationStatus': 'not_attempted', 'publicationRunId': None, 'publicationVerified': False,
-            'weeklyNotePreviewStatus': 'not_due', 'weeklyNoteCode': None}
+            'weeklyNotePreviewStatus': 'not_due', 'weeklyNoteCode': None,
+            'publicationApiReadFailure': None}
         self.save()
 
     def save(self):
@@ -79,6 +80,18 @@ class RunLog:
             value = require_publication_result(publication, verified_only=status == 'success')
             self.value.update(publicationStatus=value['status'], publicationRunId=value['runId'],
                 publicationVerified=value['verified'])
+        self.save()
+
+    def api_read_failure(self, value):
+        # A redacted and structurally verified GET failure diagnostic only.
+        if (not isinstance(value, dict) or set(value) != {'resource', 'httpStatus', 'exceptionType'}
+                or value['resource'] not in {'workflow_runs', 'workflow_run', 'workflow_jobs', 'other'}
+                or value['exceptionType'] not in {'HTTPError', 'SSLError', 'URLError',
+                    'TimeoutError', 'JSONDecodeError', 'ValueError', 'OSError', 'UnexpectedError'}
+                or (value['httpStatus'] is not None and
+                    (type(value['httpStatus']) is not int or not 100 <= value['httpStatus'] <= 599))):
+            raise PipelineError('RUN_LOG_STATUS_INVALID')
+        self.value['publicationApiReadFailure'] = value.copy()
         self.save()
 
     def note_preview(self, status, code=None):
