@@ -108,10 +108,43 @@ def gate(root: Path, now: datetime, get, *, site_only=False) -> bool:
     return publication_needed(get, now)
 
 
+
+def scheduled_gate(root: Path, now: datetime, get) -> str:
+    """Scheduled *observation* decision, never a deployment authorization on errors.
+
+    A real Pages receipt wins even if fresh product data has since expired.
+    Otherwise all content and ambiguity gates remain strict. The caller
+    converts errors to BLOCKED, not to published or publishable.
+    """
+    if now.astimezone(JST).time() < time(6, 50):
+        raise PipelineError('BEFORE_PUBLICATION_WINDOW')
+    if publication_receipt(get, now) is not None:
+        return 'already_published'
+    validate_site_publication(root, now)
+    return 'ready'
+
+
+def output_decision(publish: bool, status: str, reason: str = 'NONE') -> None:
+    if status not in {'ready', 'already_published', 'blocked'}:
+        raise PipelineError('PUBLICATION_GATE_DECISION_INVALID')
+    if not re.fullmatch(r'[A-Z][A-Z0-9_]{2,79}', reason):
+        raise PipelineError('PUBLICATION_GATE_REASON_INVALID')
+    fields = {'publish': 'true' if publish else 'false',
+              'gate_status': status, 'gate_reason': reason}
+    print('PUBLICATION_GATE_DECISION: ' + status + ' / ' + reason)
+    if os.environ.get('GITHUB_OUTPUT'):
+        with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+            for key, value in fields.items():
+                output.write(key + '=' + value + '\n')
+
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, required=True)
     parser.add_argument('--site-only', action='store_true')
+    parser.add_argument('--scheduled-check', action='store_true',
+        help='schedule only: block safely and report once instead of repeated failure runs')
     args = parser.parse_args()
     try:
         now = datetime.now(timezone.utc)
@@ -123,12 +156,23 @@ def main():
         # Re-run today's attempts only; an old run is not a new daily receipt.
         if timestamp(run.get('created_at')).astimezone(JST).date() != now.astimezone(JST).date():
             raise PipelineError('PUBLICATION_RUN_WRONG_DAY')
+        if args.scheduled_check:
+            # Only a GitHub schedule may turn a validation error into a
+            # monitored, non-publishing BLOCKED outcome. Manual dispatch and
+            # the real Windows publication path keep their strict behavior.
+            if os.environ.get('GITHUB_EVENT_NAME') != 'schedule' or not args.site_only:
+                raise PipelineError('PUBLICATION_SCHEDULE_CONTEXT_INVALID')
+            try:
+                status = scheduled_gate(args.root, now, get)
+            except PipelineError as exc:
+                raw = str(exc)
+                reason = raw if re.fullmatch(r'[A-Z][A-Z0-9_]{2,79}', raw) else 'PUBLICATION_GATE_ERROR'
+                output_decision(False, 'blocked', reason)
+                return 0
+            output_decision(status == 'ready', status)
+            return 0
         needed = gate(args.root, now, get, site_only=args.site_only)
-        value = 'true' if needed else 'false'
-        print('publish=' + value)
-        if os.environ.get('GITHUB_OUTPUT'):
-            with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as f:
-                f.write('publish=' + value + '\n')
+        output_decision(needed, 'ready' if needed else 'already_published')
         return 0
     except PipelineError as exc:
         print('PUBLICATION_GATE_STOPPED: ' + str(exc))
