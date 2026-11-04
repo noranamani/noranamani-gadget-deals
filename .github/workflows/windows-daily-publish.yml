@@ -19,6 +19,8 @@ jobs:
     outputs:
       source_commit: ${{ steps.snapshot.outputs.source_commit }}
       publish: ${{ steps.gate.outputs.publish }}
+      gate_status: ${{ steps.gate.outputs.gate_status }}
+      gate_reason: ${{ steps.gate.outputs.gate_reason }}
       weekday_jst: ${{ steps.snapshot.outputs.weekday_jst }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -37,7 +39,13 @@ jobs:
         name: Require current editorial and no successful publication today
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python -X utf8 scripts/publication_gate.py --root "$GITHUB_WORKSPACE" --site-only
+        shell: bash
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = schedule ]; then
+            python -X utf8 scripts/publication_gate.py --root "$GITHUB_WORKSPACE" --site-only --scheduled-check
+          else
+            python -X utf8 scripts/publication_gate.py --root "$GITHUB_WORKSPACE" --site-only
+          fi
       - id: prepare
         if: steps.gate.outputs.publish == 'true'
         shell: bash
@@ -53,7 +61,7 @@ jobs:
   weekly-note:
     # Wait for deployment to finish before any note commit can advance main.
     # Its success is independent of Pages, and weekday publication needs no note.
-    if: ${{ always() && needs.prepare.result == 'success' && needs.prepare.outputs.weekday_jst == '7' && vars.WINDOWS_PIPELINE_ENABLED == 'true' && github.ref == 'refs/heads/main' }}
+    if: ${{ always() && needs.prepare.result == 'success' && needs.prepare.outputs.gate_status != 'blocked' && needs.prepare.outputs.weekday_jst == '7' && vars.WINDOWS_PIPELINE_ENABLED == 'true' && github.ref == 'refs/heads/main' }}
     needs: [prepare, deploy]
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -129,20 +137,64 @@ jobs:
     permissions: {}
     timeout-minutes: 2
     steps:
-      - name: Report blocked publication without exposing data
+      - name: Summarize actual publication without claiming success on a skip
         env:
           PREPARE_RESULT: ${{ needs.prepare.result }}
           NOTE_RESULT: ${{ needs.weekly-note.result }}
           DEPLOY_RESULT: ${{ needs.deploy.result }}
           PUBLISH_NEEDED: ${{ needs.prepare.outputs.publish }}
+          GATE_STATUS: ${{ needs.prepare.outputs.gate_status }}
+          GATE_REASON: ${{ needs.prepare.outputs.gate_reason }}
+        shell: bash
         run: |
-          echo '## Gadget publication check' >> "$GITHUB_STEP_SUMMARY"
-          echo "prepare=$PREPARE_RESULT note=$NOTE_RESULT deploy=$DEPLOY_RESULT" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$PREPARE_RESULT" != success ] || { [ "$PUBLISH_NEEDED" = true ] && [ "$DEPLOY_RESULT" != success ]; }; then
-            echo '::error::Publication blocked. Review fixed error codes; do not rewrite timestamps or hashes. Later scheduled checks can recover missing editorial, but ambiguous deployment needs review.'
-            exit 1
+          {
+            echo '## Gadget daily publication evidence (not an automatic success claim)'
+            echo "prepare=$PREPARE_RESULT gate=$GATE_STATUS reason=$GATE_REASON"
+            echo "deploy=$DEPLOY_RESULT weekly_note=$NOTE_RESULT requested=$PUBLISH_NEEDED"
+            if [ "$GATE_STATUS" = 'already_published' ]; then
+              echo 'Already published: this gate observed a real earlier Publish Pages receipt.'
+            elif [ "$GATE_STATUS" = 'blocked' ]; then
+              echo 'BLOCKED: no Pages publication was attempted by this run.'
+              echo 'A separate day-deduplicated issue alert follows after the recovery window.'
+            elif [ "$PUBLISH_NEEDED" = 'true' ] && [ "$DEPLOY_RESULT" = 'success' ]; then
+              echo 'Deploy job completed; verify the Publish Pages step for actual publication.'
+            elif [ "$PUBLISH_NEEDED" = 'true' ]; then
+              echo 'Publication not confirmed; needs review.'
+            else
+              echo 'No new publication requested; do not infer publication success.'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$GATE_STATUS" = blocked ] || [ "$PREPARE_RESULT" = failure ] ||
+             { [ "$PUBLISH_NEEDED" = true ] && [ "$DEPLOY_RESULT" != success ]; } ||
+             [ "$NOTE_RESULT" = failure ] || [ "$NOTE_RESULT" = cancelled ]; then
+            echo '::warning::Gadget publication needs review. A separate scheduled issue alert is deduplicated by JST date.'
           fi
-          if [ "$NOTE_RESULT" = failure ] || [ "$NOTE_RESULT" = cancelled ]; then
-            echo '::error::Weekly note materials blocked. Pages result is independent; do not post an old issue.'
-            exit 1
-          fi
+  alert:
+    # One failure email / issue per JST day, not four failures from the
+    # scheduled backup runs. Missing/unknown publication is NEVER "published".
+    if: ${{ always() && github.event_name == 'schedule' && vars.WINDOWS_PIPELINE_ENABLED == 'true' && github.ref == 'refs/heads/main' && (needs.prepare.result == 'failure' || needs.prepare.result == 'cancelled' || needs.prepare.outputs.gate_status == 'blocked' || (needs.prepare.outputs.publish == 'true' && needs.deploy.result != 'success') || needs.weekly-note.result == 'failure' || needs.weekly-note.result == 'cancelled') }}
+    needs: [prepare, weekly-note, deploy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Report one actual daily failure without attempting Pages or note
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_REF: ${{ github.ref }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          PREPARE_RESULT: ${{ needs.prepare.result }}
+          NOTE_RESULT: ${{ needs.weekly-note.result }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          PUBLISH_NEEDED: ${{ needs.prepare.outputs.publish }}
+          GATE_STATUS: ${{ needs.prepare.outputs.gate_status }}
+          GATE_REASON: ${{ needs.prepare.outputs.gate_reason }}
+        run: python -X utf8 scripts/publication_daily_alert.py

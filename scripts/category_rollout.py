@@ -179,6 +179,17 @@ def require_apply_window(now: datetime) -> None:
         raise ValueError('CATEGORY_ROLLOUT_OUTSIDE_SAFE_WINDOW')
 
 
+def apply_window_open(now: datetime) -> bool:
+    """Read-only scheduling eligibility; the actual write still checks again."""
+    try:
+        require_apply_window(now)
+        return True
+    except ValueError as exc:
+        if str(exc) != 'CATEGORY_ROLLOUT_OUTSIDE_SAFE_WINDOW':
+            raise
+        return False
+
+
 def apply(root: Path, *, now: datetime, allow_write: bool) -> dict:
     config = read_json(root, CONFIG)
     state = read_json(root, STATE)
@@ -213,8 +224,19 @@ def main() -> None:
     parser.add_argument("--check", action="store_true", help="read only, default")
     parser.add_argument("--apply", action="store_true", help="scheduled job only")
     parser.add_argument("--assert-apply-window", action="store_true", help="check immediately before Git push")
+    parser.add_argument("--apply-window-status", action="store_true",
+                        help="read-only: expose whether a delayed cron may safely write")
     parser.add_argument("--root", type=Path, default=ROOT)
     args = parser.parse_args()
+    if args.apply_window_status:
+        if args.apply or args.check or args.assert_apply_window:
+            parser.error("window status must be the only mode")
+        opened = apply_window_open(datetime.now(timezone.utc))
+        print("CATEGORY_ROLLOUT_WINDOW: " + ("open" if opened else "closed_safe_skip"))
+        if os.environ.get("GITHUB_OUTPUT"):
+            with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+                f.write("open=" + ("true" if opened else "false") + "\n")
+        return
     if args.assert_apply_window:
         require_apply_window(datetime.now(timezone.utc))
         print('CATEGORY_ROLLOUT_WINDOW_OK')
