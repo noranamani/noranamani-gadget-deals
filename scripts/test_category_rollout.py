@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from category_rollout import JST, apply, decide, validate
+from category_rollout import JST, apply, decide, validate, apply_window_open
 
 SUNDAY = datetime(2026, 10, 25, 6, 0, tzinfo=JST)
 NEXT = datetime(2026, 11, 8, 6, 0, tzinfo=JST)
@@ -45,6 +45,17 @@ def seed(now=SUNDAY):
 
 
 class CategorySafetyTests(unittest.TestCase):
+    def test_delayed_sunday_cron_is_safe_skip_without_modifying_queries(self):
+        self.assertTrue(apply_window_open(datetime(2026, 11, 1, 5, 15, tzinfo=JST)))
+        self.assertTrue(apply_window_open(datetime(2026, 11, 1, 5, 59, tzinfo=JST)))
+        self.assertFalse(apply_window_open(datetime(2026, 11, 1, 8, 23, tzinfo=JST)))
+        self.assertFalse(apply_window_open(datetime(2026, 11, 2, 5, 15, tzinfo=JST)))
+        root=Path(__file__).resolve().parents[1]
+        y=(root/'.github/workflows/category-expansion.yml').read_text(encoding='utf-8')
+        self.assertIn('--apply-window-status',y)
+        self.assertIn("steps.write_window.outputs.open == 'true'",y)
+        self.assertIn("if [ \"$GITHUB_EVENT_NAME\" = schedule ]",y)
+
     def test_starts_only_on_or_after_oct_25_and_on_sundays(self):
         cfg, state, qs, products = seed()
         earlier = SUNDAY - timedelta(days=7)
