@@ -28,7 +28,7 @@ class WakeupRegressionTests(unittest.TestCase):
     def test_wrong_day_old_or_future_pushes_are_rejected(self):
         self.assertIsNone(slot_delay(at(6,50), at(6,30,day=3)))
         self.assertIsNone(slot_delay(at(6,50), at(6,51)))
-        self.assertIsNone(slot_delay(at(6,50), at(6,10)))
+        self.assertIsNone(slot_delay(at(6,50), at(6,19)))
         self.assertIsNone(slot_delay(at(9,6), at(6,30)))
         self.assertIsNone(slot_delay(at(9,5), at(6,0)))
 
