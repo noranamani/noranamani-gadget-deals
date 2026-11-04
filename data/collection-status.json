@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-11-03T21:10:03.458889Z",
-  "sourceCommit": "4740a7e4725c6e60436b55c1d46ef9f7c8e33823",
-  "productsSha256": "769c5110cb73de8bc517b2cdd9044b57cc3fdadde49d635ff28a6d4bef37ff9c",
-  "historySha256": "913cb285758875ddbf9d88c38a7a01e88d101dbccc3d55fce9469981487fa062",
+  "collectedAt": "2026-11-04T21:10:04.685959Z",
+  "sourceCommit": "249ee203438c5a25a9affba2df9b81b6207b4743",
+  "productsSha256": "e0df847a458f827f2e0eb1e0acf669490c3fa99fb5a6637d5786d9bd3fe6b130",
+  "historySha256": "94b01e783a70166ddebc63e884f363a3a4a8db794d66a0bdbcee0503d3bbd308",
   "queriesSha256": "d2810371919a8bf7f5cfa1afc8f705ef3d788de420a9361d4b014e025d00fb8a",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
@@ -16,7 +16,7 @@
     },
     {
       "id": "wireless-charger",
-      "fetchedUnique": 49,
+      "fetchedUnique": 50,
       "displayed": 18
     },
     {
@@ -26,7 +26,7 @@
     },
     {
       "id": "car-charger",
-      "fetchedUnique": 51,
+      "fetchedUnique": 50,
       "displayed": 18
     },
     {
@@ -51,9 +51,9 @@
     }
   ],
   "historyPreservation": {
-    "previousKeys": 502,
-    "previousRecords": 6557,
-    "currentKeys": 503,
-    "currentRecords": 6963
+    "previousKeys": 503,
+    "previousRecords": 6963,
+    "currentKeys": 507,
+    "currentRecords": 7370
   }
 }
