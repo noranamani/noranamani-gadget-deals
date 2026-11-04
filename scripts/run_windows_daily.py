@@ -107,6 +107,7 @@ def orchestrate(cfg, clock=lambda: datetime.now(timezone.utc), pause=timing.slee
 
         run = root/'runs'/uuid.uuid4().hex
         repo = GitRepository(cfg['runtime_dir']/'repository.git', cfg['proxy_url'], cfg['ca_bundle'])
+        api = None  # Defined before the stage try so read failure metadata can be logged.
 
         def hashes(source):
             return {label: digest(source/name) for label, name in (
@@ -172,7 +173,9 @@ def orchestrate(cfg, clock=lambda: datetime.now(timezone.utc), pause=timing.slee
 
         try:
             phase('network_readiness')
-            state.begin('network_readiness', {})
+            readiness_confirmed = state.row('network_readiness')['status'] == 'succeeded'
+            if not readiness_confirmed:
+                state.begin_readonly('network_readiness', {})
             reused = False
             created = not repo.root.exists()
             repo.root.mkdir(parents=True, exist_ok=True)
@@ -182,8 +185,9 @@ def orchestrate(cfg, clock=lambda: datetime.now(timezone.utc), pause=timing.slee
             if repo.run('rev-parse', '--is-bare-repository').strip() != b'true' or repo.run('remote', 'get-url', 'origin').decode().strip() != REPOSITORY_URL:
                 raise PipelineError('RUNTIME_REPOSITORY_INVALID')
             base = fetch_main_ready(repo, clock, pause, recovering=recovering)
-            state.checkpoint('network_readiness', commit=base)
-            state.success('network_readiness', {}, {})
+            if not readiness_confirmed:
+                state.checkpoint('network_readiness', commit=base)
+                state.success('network_readiness', {}, {})
             phase('collection')
             existing = run/'existing'
             repo.archive(base, existing)
@@ -251,8 +255,7 @@ def orchestrate(cfg, clock=lambda: datetime.now(timezone.utc), pause=timing.slee
             check_current()
             api = PublicationAPI(repo, cfg)
             journal = root/'dispatch'/(clock().astimezone(JST).date().isoformat()+'.json')
-            state.begin('publication', {'manifest': digest(artifact/'publication-manifest.json')}, observing=journal.exists())
-            state.checkpoint('publication', commit=base, write_intent=True)
+            publication_inputs = {'manifest': digest(artifact/'publication-manifest.json')}
             observed_source = base
             if recovering and journal.exists():
                 intent = load_json(journal)
@@ -260,7 +263,14 @@ def orchestrate(cfg, clock=lambda: datetime.now(timezone.utc), pause=timing.slee
                 result = ('already_published' if publication_receipt(api.get, clock(), fail_on_uncertain=False)
                     else 'requested')  # Read/observe the previous intent; no new dispatch.
             else:
-                result = request_once(api, journal, clock(), base, check_current)
+                def before_intent():
+                    state.begin('publication', publication_inputs)
+                def after_intent():
+                    # Only a persisted dispatch journal is evidence of a write
+                    # intent. A failed GET cannot set this flag.
+                    state.checkpoint('publication', commit=base, write_intent=True)
+                result = request_once(api, journal, clock(), base, check_current,
+                    before_intent=before_intent, after_intent=after_intent)
             publication = require_publication_result(
                 await_publication(api, journal, result, observed_source, clock, pause), verified_only=True)
             try:
@@ -305,6 +315,12 @@ def orchestrate(cfg, clock=lambda: datetime.now(timezone.utc), pause=timing.slee
                 'publicationVerified': publication['verified'], 'collectionReused': reused, 'sourceCommit': base,
                 'productsSha256': product_hash, 'weeklyNotePreviewStatus': note_status, 'weeklyNoteCode': note_code}
         except Exception as exc:
+            # Record *only* a strict allowlist of GET diagnostics in the private
+            # run log. Never persist URL, headers, token or exception messages.
+            if active[0] == 'publication' and log is not None and api is not None:
+                failure = getattr(api, 'last_read_failure', None)
+                if failure is not None:
+                    log.api_read_failure(failure)
             if active[0] in {'network_readiness', 'collection', 'daily_editorial', 'weekly_editorial', 'site_build', 'publication'}:
                 row = state.row(active[0])
                 try:

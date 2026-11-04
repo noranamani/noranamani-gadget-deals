@@ -72,6 +72,22 @@ class StateTests(unittest.TestCase):
         with self.assertRaisesRegex(PipelineError, 'STAGE_RETRY_LIMIT'):
             self.state.begin('site_build', HASHES)
 
+    def test_read_only_network_failures_do_not_exhaust_write_stage_limit(self):
+        # External recovery tasks may resume when network returns. Each
+        # process still has bounded GET retries and a persistent backoff.
+        for _ in range(4):
+            self.state.begin_readonly('network_readiness', {})
+            self.state.failure('network_readiness', PipelineError('GIT_UNAVAILABLE_OR_TIMEOUT'))
+            self.current += timedelta(minutes=10)
+            self.state = RecoveryState(self.root, NOW.date().isoformat(), lambda: self.current)
+        self.assertEqual(self.state.row('network_readiness')['attempts'], 4)
+        self.state.begin_readonly('network_readiness', {})
+        self.state.success('network_readiness', {}, {})
+        self.assertEqual(self.state.row('network_readiness')['status'], 'succeeded')
+        self.assertEqual(self.state.row('network_readiness')['attempts'], 5)
+        with self.assertRaisesRegex(PipelineError, 'RECOVERY_EXTERNAL_STAGE'):
+            self.state.begin_readonly('publication', HASHES)
+
     def test_uncertain_write_cannot_be_repeated_without_actual_remote_confirmation(self):
         self.state.begin('daily_editorial', HASHES)
         self.state.checkpoint('daily_editorial', commit='a'*40, outputs={'editorial': 'b'*64}, write_intent=True)
@@ -168,6 +184,40 @@ class ReadRetryTests(unittest.TestCase):
             self.assertEqual(api.get('actions/runs/1'), {'ok': True})
         self.assertEqual([c.args[0] for c in pause.call_args_list], [2, 4])
 
+    def test_get_failure_records_only_allowlisted_http_status_and_exception_kind(self):
+        api = PublicationAPI.__new__(PublicationAPI)
+        api.token = 'fixture-never-log-this-secret'
+        api.opener = Mock()
+        for status, expected in ((500, 'HTTPError'), (429, 'HTTPError')):
+            api.opener.open.side_effect = urllib.error.HTTPError(
+                'https://fixture.invalid/token=private', status,
+                'private header fixture-secret', {}, None)
+            with patch('github_publication.timing.sleep'), self.assertRaises(PipelineError):
+                api.get('actions/workflows/windows-daily-publish.yml/runs?per_page=100')
+            self.assertEqual(api.last_read_failure,
+                {'resource':'workflow_runs','httpStatus':status,'exceptionType':expected})
+            self.assertNotIn('private', json.dumps(api.last_read_failure))
+        api.opener.open.side_effect = urllib.error.URLError('cookie=fixture-secret')
+        with patch('github_publication.timing.sleep'), self.assertRaises(PipelineError):
+            api.get('actions/runs/123/jobs?per_page=100')
+        self.assertEqual(api.last_read_failure,
+            {'resource':'workflow_jobs','httpStatus':None,'exceptionType':'URLError'})
+
+    def test_http_200_invalid_json_is_diagnosed_without_raw_response(self):
+        api = PublicationAPI.__new__(PublicationAPI)
+        api.token = 'fixture-secret'
+        api.opener = Mock()
+        def bad_json(*args, **kwargs):
+            response = io.BytesIO(b'{bad private-cookie fixture-secret')
+            response.status = 200
+            return response
+        api.opener.open.side_effect = bad_json
+        with patch('github_publication.timing.sleep'), self.assertRaisesRegex(PipelineError, 'STATE_UNAVAILABLE'):
+            api.get('actions/runs/1001')
+        self.assertEqual(api.last_read_failure,
+            {'resource':'workflow_run','httpStatus':200,'exceptionType':'JSONDecodeError'})
+        self.assertNotIn('fixture-secret', json.dumps(api.last_read_failure))
+
     def test_get_authentication_failure_is_not_retried(self):
         api = PublicationAPI.__new__(PublicationAPI)
         api.call = Mock(side_effect=PipelineError('PUBLICATION_API_PERMISSION_REQUIRED'))
@@ -239,6 +289,42 @@ class ResumeTests(unittest.TestCase):
         f.api.dispatch.assert_called_once()
         for stage in ('daily_editorial', 'weekly_editorial', 'site_build', 'note_materials'):
             self.assertEqual(self.ledger(f)['stages'][stage]['attempts'], before['stages'][stage]['attempts'])
+
+    def test_failed_github_get_before_dispatch_is_retryable_and_never_marks_intent(self):
+        f = self.fixture()
+        original_get = f.api.get.side_effect
+        def broken_get(path):
+            if '/runs?' in path:
+                raise PipelineError('PUBLICATION_STATE_UNAVAILABLE')
+            return original_get(path)
+        f.api.get.side_effect = broken_get
+        with self.assertRaisesRegex(PipelineError, 'PUBLICATION_STATE_UNAVAILABLE'):
+            f.run_pipeline()
+        journal = f.cfg['runtime_dir']/'daily/dispatch'/(f.current.date().isoformat()+'.json')
+        self.assertFalse(journal.exists(), 'no remote dispatch attempt can predate its journal')
+        row = self.ledger(f)['stages']['publication']
+        self.assertEqual(row['status'], 'failed')
+        self.assertFalse(row['writeIntent'], 'a failed GET is not a dispatch intent')
+        self.assertEqual(row['attempts'], 0)
+        f.api.dispatch.assert_not_called()
+        f.current += timedelta(minutes=5)
+        f.api.get.side_effect = original_get
+        self.assertEqual(self.resume(f)['status'], 'published')
+        f.api.dispatch.assert_called_once()
+        verified = self.ledger(f)['stages']['publication']
+        self.assertEqual(verified['status'], 'succeeded')
+        self.assertEqual(verified['attempts'], 1)
+        self.assertFalse(verified['writeIntent'])
+
+    def test_successful_network_readiness_is_not_recounted_each_recovery_check(self):
+        f = self.fixture()
+        f.run_pipeline()
+        original = self.ledger(f)['stages']['network_readiness']['attempts']
+        for _ in range(4):
+            f.current += timedelta(minutes=5)
+            self.assertEqual(self.resume(f)['status'], 'already_published')
+        self.assertEqual(self.ledger(f)['stages']['network_readiness']['attempts'], original)
+        f.api.dispatch.assert_called_once()
 
     def test_network_outage_before_collection_recovers_using_fresh_remote_data(self):
         f = self.fixture()

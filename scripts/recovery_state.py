@@ -123,6 +123,27 @@ class RecoveryState:
         row['retryCount'] = row['attempts']-1
         self.save()
 
+    def begin_readonly(self, stage, inputs):
+        """Restartable Git/HTTP readiness. No write intent, no permanent 3-attempt cap.
+
+        Each invocation is still bounded by its caller's three local GET/fetch
+        attempts, the JST recovery window, and nextRetryAt. Only the named
+        network-readiness stage may use this method.
+        """
+        if stage != 'network_readiness':
+            raise PipelineError('RECOVERY_EXTERNAL_STAGE')
+        self.validate_hashes(inputs)
+        row = self.row(stage)
+        from pipeline_common import timestamp
+        if row['writeIntent']:
+            raise PipelineError('STAGE_RESULT_UNCONFIRMED')
+        if row['nextRetryAt'] is not None and self.clock() < timestamp(row['nextRetryAt']):
+            raise PipelineError('RECOVERY_BACKOFF')
+        row.update(status='running', attempts=row['attempts']+1,
+            retryCount=row['attempts'], startedAt=self.clock().isoformat(),
+            updatedAt=self.clock().isoformat(), inputSha256=inputs, writeIntent=False)
+        self.save()
+
     def checkpoint(self, stage, *, outputs=None, commit=None, artifact=None, write_intent=False):
         row = self.row(stage)
         if outputs is not None:

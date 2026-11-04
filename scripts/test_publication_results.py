@@ -211,6 +211,19 @@ class LogTests(unittest.TestCase):
             self.assertEqual(saved['publicationVerified'], result['verified'])
             self.assertEqual(saved['publicationRunId'], 51)
 
+    def test_read_failure_metadata_is_redacted_validated_and_stays_private(self):
+        log = RunLog(self.root, lambda: NOW)
+        safe = {'resource': 'workflow_runs', 'httpStatus': 200,
+            'exceptionType': 'JSONDecodeError'}
+        log.api_read_failure(safe)
+        self.assertEqual(load_json(log.path)['publicationApiReadFailure'], safe)
+        self.assertNotIn('fixture-secret', log.path.read_text(encoding='utf-8'))
+        with self.assertRaisesRegex(PipelineError, 'STATUS_INVALID'):
+            log.api_read_failure({**safe, 'url': 'https://secret.invalid/?cookie=fixture-secret'})
+        with self.assertRaisesRegex(PipelineError, 'STATUS_INVALID'):
+            log.api_read_failure({**safe, 'exceptionType': 'cookie=fixture-secret'})
+        self.assertEqual(load_json(log.path)['publicationApiReadFailure'], safe)
+
     def test_success_without_publication_proof_is_rejected(self):
         log = RunLog(self.root, lambda: NOW)
         with self.assertRaisesRegex(PipelineError, 'RESULT_UNCONFIRMED'):

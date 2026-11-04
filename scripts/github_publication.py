@@ -60,6 +60,34 @@ class PublicationAPI:
         self.opener = urllib.request.build_opener(NoRedirect(),
             urllib.request.ProxyHandler({'https': cfg['proxy_url']}),
             urllib.request.HTTPSHandler(context=ctx))
+        self.last_read_failure = None
+
+    def _record_read_failure(self, path, error, http_status=None):
+        # Only fixed classifications and an integer HTTP status are logged.
+        # Never save a URL, token, proxy, headers, response body or exception text.
+        resource = ('workflow_runs' if path.startswith('actions/workflows/')
+                    else 'workflow_jobs' if '/jobs' in path
+                    else 'workflow_run' if path.startswith('actions/runs/')
+                    else 'other')
+        if isinstance(error, urllib.error.HTTPError):
+            kind = 'HTTPError'
+        elif isinstance(error, ssl.SSLError):
+            kind = 'SSLError'
+        elif isinstance(error, urllib.error.URLError):
+            kind = 'URLError'
+        elif isinstance(error, TimeoutError):
+            kind = 'TimeoutError'
+        elif isinstance(error, json.JSONDecodeError):
+            kind = 'JSONDecodeError'
+        elif isinstance(error, ValueError):
+            kind = 'ValueError'
+        elif isinstance(error, OSError):
+            kind = 'OSError'
+        else:
+            kind = 'UnexpectedError'
+        code = http_status if type(http_status) is int and 100 <= http_status <= 599 else None
+        self.last_read_failure = {
+            'resource': resource, 'httpStatus': code, 'exceptionType': kind}
 
     def __repr__(self):
         return 'PublicationAPI([REDACTED])'
@@ -74,8 +102,11 @@ class PublicationAPI:
             headers={'Authorization': 'Bearer '+self.token, 'Accept': 'application/vnd.github+json',
                 'Content-Type': 'application/json', 'User-Agent': 'gadget-windows-publication',
                 'X-GitHub-Api-Version': '2026-03-10'})
+        http_status = None
         try:
             with self.opener.open(request, timeout=30) as response:
+                status = getattr(response, 'status', None)
+                http_status = status if type(status) is int else None
                 if body is not None:
                     if response.status == 204:
                         return {}
@@ -88,8 +119,11 @@ class PublicationAPI:
                 value = json.load(response)
                 if not isinstance(value, dict):
                     raise ValueError()
+                self.last_read_failure = None
                 return value
         except urllib.error.HTTPError as exc:
+            if body is None:
+                self._record_read_failure(path, exc, exc.code)
             if exc.code == 429 or (exc.code == 403 and (exc.headers.get('X-RateLimit-Remaining') == '0'
                     or exc.headers.get('Retry-After'))):
                 raise PipelineError('PUBLICATION_RATE_LIMITED') from None
@@ -99,7 +133,9 @@ class PublicationAPI:
                 raise error from None
             raise PipelineError('PUBLICATION_DISPATCH_UNCERTAIN' if body is not None
                 else 'PUBLICATION_STATE_UNAVAILABLE') from None
-        except Exception:
+        except Exception as exc:
+            if body is None:
+                self._record_read_failure(path, exc, http_status)
             raise PipelineError('PUBLICATION_DISPATCH_UNCERTAIN' if body is not None
                 else 'PUBLICATION_STATE_UNAVAILABLE') from None
 
@@ -116,7 +152,8 @@ class PublicationAPI:
         return self.call('actions/workflows/'+WORKFLOW+'/dispatches', {'ref': 'main'})
 
 
-def request_once(api, journal, now, source_commit, check_current=lambda: None):
+def request_once(api, journal, now, source_commit, check_current=lambda: None,
+        before_intent=lambda: None, after_intent=lambda: None):
     if now.astimezone(JST).time() < time(6, 50):
         raise PipelineError('BEFORE_PUBLICATION_WINDOW')
     if journal.exists():
@@ -137,10 +174,16 @@ def request_once(api, journal, now, source_commit, check_current=lambda: None):
     if not publication_needed(api.get, now):
         return 'already_published'
     check_current()
+    # A preflight GET is not a write attempt. Begin the persistent write stage
+    # only after every read-only gate passes, immediately before saving intent.
+    before_intent()
     # Persist intent BEFORE sending. A lost response never causes an automatic retry.
     write_json(journal, {'schemaVersion': 1, 'state': 'requested',
         'requestedAt': now.isoformat(), 'sourceCommit': source_commit,
         'previousRunIds': [r['id'] for r in rows]})
+    # From here onward recovery is observation-only. Even a failed checkpoint
+    # leaves a durable intent and can never cause an automatic second dispatch.
+    after_intent()
     receipt = api.dispatch()
     if isinstance(receipt, dict) and type(receipt.get('workflowRunId')) is int and receipt['workflowRunId'] > 0:
         from pipeline_common import load_json

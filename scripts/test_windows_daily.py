@@ -320,6 +320,47 @@ class DispatchTests(unittest.TestCase):
             request_once(self.api, self.journal, fixtures.SUNDAY, fixtures.SHA)
         self.api.dispatch.assert_called_once()
 
+    def test_read_only_preflight_failure_does_not_reserve_or_dispatch(self):
+        before, after = Mock(), Mock()
+        self.api.get.side_effect = PipelineError('PUBLICATION_STATE_UNAVAILABLE')
+        with self.assertRaisesRegex(PipelineError, 'STATE_UNAVAILABLE'):
+            request_once(self.api, self.journal, fixtures.SUNDAY, fixtures.SHA,
+                before_intent=before, after_intent=after)
+        before.assert_not_called()
+        after.assert_not_called()
+        self.api.dispatch.assert_not_called()
+        self.assertFalse(self.journal.exists())
+
+    def test_intent_checkpoint_failure_stays_blocked_without_sending(self):
+        before, after = Mock(), Mock(side_effect=PipelineError('RECOVERY_STATE_UNAVAILABLE'))
+        with self.assertRaisesRegex(PipelineError, 'RECOVERY_STATE_UNAVAILABLE'):
+            request_once(self.api, self.journal, fixtures.SUNDAY, fixtures.SHA,
+                before_intent=before, after_intent=after)
+        before.assert_called_once()
+        after.assert_called_once()
+        self.api.dispatch.assert_not_called()
+        self.assertEqual(load_json(self.journal)['state'], 'requested')
+        with self.assertRaisesRegex(PipelineError, 'ALREADY_REQUESTED'):
+            request_once(self.api, self.journal, fixtures.SUNDAY, fixtures.SHA)
+        self.api.dispatch.assert_not_called()
+
+    def test_write_stage_begins_only_after_reads_and_before_network_dispatch(self):
+        order = []
+        def before():
+            self.assertFalse(self.journal.exists())
+            order.append('stage_begin')
+        def after():
+            self.assertTrue(self.journal.exists())
+            order.append('intent_persisted')
+        def dispatch():
+            self.assertEqual(order, ['stage_begin', 'intent_persisted'])
+            self.assertTrue(self.journal.exists())
+            order.append('dispatch')
+        self.api.dispatch.side_effect = dispatch
+        self.assertEqual(request_once(self.api, self.journal, fixtures.SUNDAY, fixtures.SHA,
+            before_intent=before, after_intent=after), 'requested')
+        self.assertEqual(order, ['stage_begin', 'intent_persisted', 'dispatch'])
+
     def test_active_run_prevents_parallel_dispatch(self):
         self.api.get.return_value = {'workflow_runs': [{'id': 9, 'head_branch': 'main',
             'created_at': fixtures.SUNDAY.isoformat(), 'status': 'in_progress'}]}

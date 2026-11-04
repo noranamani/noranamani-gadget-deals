@@ -133,3 +133,21 @@ recovery_lock.pyはOSの非ブロッキングロック（Windowsのmsvcrt、Ubun
 最短の通常再開案は11/3 06:10正規収集→06:30日次→06:50以降公開。11/8や完全非ログオン化の完成は日次再開の前提にしない。本人承認後、独立バックアップ→PR取り込み→固定コード一式配置→既存タスク入口/75分上限切替→必要なら復旧用定義を設定→初回実公開確認の順に進める。本番操作は今回実施しない。
 
 失敗時は最後の正常サイトを維持し、新入口/復旧トリガーを停止する。承認のうえ保存済み旧タスク/コードへ戻せるが、旧版は収集のみ。状態・dispatch intent・商品履歴・note台帳を消して再実行しない。mainをreset/force pushしない。実際のPublish Pages成功と公開サイトの新しい内容を確認して初めて復旧完了と報告する。
+
+
+## 2026-11-04 本番GET事前確認による停止と復旧設計の更新
+
+11/4のWindows正規実行は06:10収集・GitHub push、06:30日次編集・push、06:50サイト成果物生成・検証が正常終了した。06:50:09の**公開前のGitHub Actions GET**で `PUBLICATION_STATE_UNAVAILABLE`、通常タスク終了コード1。06:55/07:05の復旧は `STAGE_RESULT_UNCONFIRMED`、07:15〜08:15は `STAGE_RETRY_LIMIT`。当日 `daily/dispatch/2026-11-04.json` は存在せず、公開dispatchの送信・受付は確認されなかった。遅れて実施したGETがHTTP 200だったことは、当時の失敗のHTTPステータスが200であった証拠ではない。
+
+根本原因は、読取専用GETを行う前に `publication` に `writeIntent=True` を立てたことで、読み取り失敗を「公開送信結果不明」と誤分類したこと。さらに `network_readiness` の成功済み診断でも `begin` を繰り返し、read-onlyチェックが同日3試行の上限を消費したこと。
+
+対応（PR #5）:
+
+1. 事前GET・公開receipt・他run確認・サイト生成物とGitHubの一致確認まで**送信記録なし**。正常なGETと事前検証の後、公開段階のbegin → 永続ジャーナル保存 → `writeIntent=True` checkpoint → `workflow_dispatch` を1回だけ実行。
+2. ジャーナル保存後は、checkpoint失敗・通信失敗・受理応答喪失のいずれでも再dispatchしない。復旧タスクはGET観測に限定。元runのPublish Pages成功を検証するまで公開済みと記録しない。
+3. `network_readiness` は書込みではないため、成功済みreadinessの再開確認では試行回数を増やさない。失敗からの読取確認も永続的な「3回書込み試行」制限を適用せず、同一プロセス3回・時刻窓・バックオフを維持。
+4. PRIVATE `daily/logs/*.json` に、失敗GETの `resource` (`workflow_runs`/`workflow_run`/`workflow_jobs`/`other`)、`httpStatus` (HTTP 100〜599またはnull)、`exceptionType` (固定リスト) のみ記録。ログ・stdout・GitHubにAPI認証、フルURL、プロキシ情報、レスポンス本文、任意の例外メッセージを出さない。
+
+**旧状態への注意:** 11/4に旧コードで記録された `writeIntent=True` / `unknown` を自動解除しない。日付・入力世代・本番公開可否の確認なく古い記事を再公開しない。現行の復旧時刻窓（06:10〜09:10）と商品鮮度を変えない。11/5の正規実行に切り替えるには、Windowsの`run_windows_daily.py`などを**PR #5反映後のmain**へ更新する必要がある。GitHubへのマージだけではWindowsタスクの実体は更新されない。
+
+受入れ確認では、(a)事前GET失敗時のジャーナル不在・writeIntent=false・実dispatch0、(b) GET復旧後の当週正規データでの1回だけdispatch、(c) 永続意図後の不明状態で2度とdispatchしない、(d) 連続復旧確認でnetwork_readinessの3試行上限を踏まない、(e) 実本番のPublish Pages成功と公開された日付・内容の確認を分けて記録する。
