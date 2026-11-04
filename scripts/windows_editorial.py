@@ -38,14 +38,14 @@ def daily(root: Path, now):
                 '保存価格との比較であり、市場全体の最安値ではありません。']} for q in queries]}
 
 
-def weekly(root: Path, now):
+def weekly(root: Path, now, *, max_collection_age_hours: int = 3):
     require_windows_owner(root)
-    editorial = validate_daily(root, now)
+    editorial = validate_daily(root, now, max_age_hours=max_collection_age_hours)
     if now.astimezone(JST).weekday() != 6 or now.astimezone(JST).time() < time(6, 40):
         raise PipelineError('BEFORE_WEEKLY_EDITORIAL_WINDOW')
     if timestamp(editorial['generatedAt']) > now:
         raise PipelineError('EDITORIAL_GENERATION_MISMATCH')
-    products, _, status, _ = validate_collection(root, now)
+    products, _, status, _ = validate_collection(root, now, max_age_hours=max_collection_age_hours)
     return {'generatedAt': now.isoformat(), 'sourceProductsSha256': status['productsSha256'],
         'weekLabel': week_label(now.astimezone(JST).date()),
         'title': 'ガジェット価格ウォッチ：掲載価格と価格履歴を確認',
