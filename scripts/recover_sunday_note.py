@@ -49,6 +49,10 @@ def main() -> int:
                 temp.replace(target)
                 result["status"] = "written_current_week_from_verified_source"
         result.pop("editorial", None)
+        if os.environ.get("GITHUB_OUTPUT"):
+            eligible = args.apply and result["status"] in ("already_current", "written_current_week_from_verified_source")
+            with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+                output.write("eligible=" + ("true" if eligible else "false") + "\n")
         print("GADGET_NOTE_RECOVERY: " + str(result))
         return 0
     except PipelineError as exc:
