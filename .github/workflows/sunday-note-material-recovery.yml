@@ -2,7 +2,7 @@ name: Gadget Sunday note material recovery (no note.com writes)
 on:
   workflow_dispatch:
   schedule:
-    # 07:05 and 07:35 JST Sunday; separate from Pages deployment.
+    # 07:05 and 07:35 JST Sunday. Each can be delayed up to eight hours.
     - cron: '5 22 * * 6'
     - cron: '35 22 * * 6'
 permissions:
@@ -37,7 +37,6 @@ jobs:
             exit 0
           fi
           python -X utf8 scripts/recover_sunday_note.py --apply
-          echo 'eligible=true' >> "$GITHUB_OUTPUT"
       - name: Prepare validated Sunday note files without deploying Pages
         if: steps.guard.outputs.eligible == 'true'
         run: |
