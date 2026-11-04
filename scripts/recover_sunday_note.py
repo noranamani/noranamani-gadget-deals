@@ -1,4 +1,4 @@
-"""Safe Sunday note recovery: checks only, never auto-overwrites an existing weekly issue."""
+"""Safe Sunday note recovery: current-week recovery with immutable prior issues and actual-time checks."""
 from __future__ import annotations
 import argparse
 import json
@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def plan(root: Path, now: datetime) -> dict:
     jst = now.astimezone(JST)
-    if jst.weekday() != 6 or not (time(7, 0) <= jst.time() <= time(9, 5)):
+    if jst.weekday() != 6 or not (time(7, 0) <= jst.time() <= time(18, 0)):
         return {"status": "outside_window"}
     expected = week_label(jst.date())
     current = load_json(root / "data/note-weekly.json")
@@ -23,7 +23,9 @@ def plan(root: Path, now: datetime) -> dict:
         return {"status": "already_current"}
     if str(current.get("weekLabel", "")) >= expected:
         raise PipelineError("NOTE_EDITORIAL_WEEK_CONFLICT")
-    proposal = weekly(root, now)
+    # An 8-hour delayed cron may run long after 06:40 JST. It still uses
+    # the real collection timestamp, matching source hash and same-day data.
+    proposal = weekly(root, now, max_collection_age_hours=11)
     if proposal.get("weekLabel") != expected:
         raise PipelineError("NOTE_RECOVERY_GENERATION_MISMATCH")
     return {"status": "ready", "issue": expected, "editorial": proposal}
