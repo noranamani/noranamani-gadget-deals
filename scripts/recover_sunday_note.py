@@ -43,7 +43,7 @@ def main() -> int:
                 temp = target.with_name("note-weekly.json.recovery-tmp")
                 with temp.open("x", encoding="utf-8") as stream:
                     json.dump(result["editorial"], stream, ensure_ascii=False, indent=2)
-                    stream.write("\\n")
+                    stream.write("\n")
                 temp.replace(target)
                 result["status"] = "written_current_week_from_verified_source"
         result.pop("editorial", None)
