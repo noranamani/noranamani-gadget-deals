@@ -40,13 +40,17 @@ jobs:
         run: python -m unittest discover -s scripts -p test_category_rollout.py -v
       - name: Show dry-run decision (NO Rakuten API calls)
         run: python scripts/category_rollout.py --check
-      - name: Add at most ONE vetted root category on scheduled Sundays
+      - id: write-window
+        name: Check whether delayed GitHub cron can still safely add a category
         if: github.event_name == 'schedule' && github.ref == 'refs/heads/main'
+        run: python scripts/category_rollout.py --apply-window-status
+      - name: Add at most ONE vetted root category on scheduled Sundays
+        if: github.event_name == 'schedule' && github.ref == 'refs/heads/main' && steps.write-window.outputs.open == 'true'
         env:
           CATEGORY_ROLLOUT_SCHEDULED: '1'
         run: python scripts/category_rollout.py --apply
       - name: Validate category JSON and persist both category config and rollout journal
-        if: github.event_name == 'schedule' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'schedule' && github.ref == 'refs/heads/main' && steps.write-window.outputs.open == 'true'
         run: |
           set -eu
           python -m json.tool config/queries.json >/dev/null
@@ -68,8 +72,13 @@ jobs:
           fi
       - name: Operational note
         if: always()
+        env:
+          WRITE_WINDOW: ${{ steps.write-window.outputs.open }}
         run: |
           echo '### Gradual root category expansion' >> "$GITHUB_STEP_SUMMARY"
+          if [ "$GITHUB_EVENT_NAME" = schedule ] && [ "$WRITE_WINDOW" = false ]; then
+            echo 'SAFE SKIP: GitHub cron arrived after the 05:00-06:00 JST write window; no category was added.' >> "$GITHUB_STEP_SUMMARY"
+          fi
           echo 'Max one category per 14 days, earliest 2026-11-01, up to 16 total categories.' >> "$GITHUB_STEP_SUMMARY"
           echo 'No Rakuten API calls; Windows collector reads approved queries at 06:10 JST.' >> "$GITHUB_STEP_SUMMARY"
           echo 'A sparse/uncollected prior category pauses future additions instead of expanding blindly.' >> "$GITHUB_STEP_SUMMARY"
