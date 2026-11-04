@@ -184,6 +184,40 @@ class ReadRetryTests(unittest.TestCase):
             self.assertEqual(api.get('actions/runs/1'), {'ok': True})
         self.assertEqual([c.args[0] for c in pause.call_args_list], [2, 4])
 
+    def test_get_failure_records_only_allowlisted_http_status_and_exception_kind(self):
+        api = PublicationAPI.__new__(PublicationAPI)
+        api.token = 'fixture-never-log-this-secret'
+        api.opener = Mock()
+        for status, expected in ((500, 'HTTPError'), (429, 'HTTPError')):
+            api.opener.open.side_effect = urllib.error.HTTPError(
+                'https://fixture.invalid/token=private', status,
+                'private header fixture-secret', {}, None)
+            with patch('github_publication.timing.sleep'), self.assertRaises(PipelineError):
+                api.get('actions/workflows/windows-daily-publish.yml/runs?per_page=100')
+            self.assertEqual(api.last_read_failure,
+                {'resource':'workflow_runs','httpStatus':status,'exceptionType':expected})
+            self.assertNotIn('private', json.dumps(api.last_read_failure))
+        api.opener.open.side_effect = urllib.error.URLError('cookie=fixture-secret')
+        with patch('github_publication.timing.sleep'), self.assertRaises(PipelineError):
+            api.get('actions/runs/123/jobs?per_page=100')
+        self.assertEqual(api.last_read_failure,
+            {'resource':'workflow_jobs','httpStatus':None,'exceptionType':'URLError'})
+
+    def test_http_200_invalid_json_is_diagnosed_without_raw_response(self):
+        api = PublicationAPI.__new__(PublicationAPI)
+        api.token = 'fixture-secret'
+        api.opener = Mock()
+        def bad_json(*args, **kwargs):
+            response = io.BytesIO(b'{bad private-cookie fixture-secret')
+            response.status = 200
+            return response
+        api.opener.open.side_effect = bad_json
+        with patch('github_publication.timing.sleep'), self.assertRaisesRegex(PipelineError, 'STATE_UNAVAILABLE'):
+            api.get('actions/runs/1001')
+        self.assertEqual(api.last_read_failure,
+            {'resource':'workflow_run','httpStatus':200,'exceptionType':'JSONDecodeError'})
+        self.assertNotIn('fixture-secret', json.dumps(api.last_read_failure))
+
     def test_get_authentication_failure_is_not_retried(self):
         api = PublicationAPI.__new__(PublicationAPI)
         api.call = Mock(side_effect=PipelineError('PUBLICATION_API_PERMISSION_REQUIRED'))
