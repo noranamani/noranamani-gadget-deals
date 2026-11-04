@@ -61,6 +61,6 @@ class SourceFreshnessIsolationTests(unittest.TestCase):
         result = validate_purpose(self.root, delayed, 'note')
         self.assertTrue(result['includeNote'])
 
-    def test_later_date_still_refused_even_under_note_extension(self):
+    def test_over_eleven_hour_old_source_is_refused_even_on_same_sunday(self):
         with self.assertRaisesRegex(PipelineError, 'PRODUCTS_STALE_OR_FUTURE'):
-            validate_purpose(self.root, self.now + timedelta(days=1), 'note')
+            validate_purpose(self.root, self.now + timedelta(hours=12), 'note')
