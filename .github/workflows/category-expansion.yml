@@ -40,17 +40,17 @@ jobs:
         run: python -m unittest discover -s scripts -p test_category_rollout.py -v
       - name: Show dry-run decision (NO Rakuten API calls)
         run: python scripts/category_rollout.py --check
-      - id: write-window
+      - id: write_window
         name: Check whether delayed GitHub cron can still safely add a category
         if: github.event_name == 'schedule' && github.ref == 'refs/heads/main'
         run: python scripts/category_rollout.py --apply-window-status
       - name: Add at most ONE vetted root category on scheduled Sundays
-        if: github.event_name == 'schedule' && github.ref == 'refs/heads/main' && steps.write-window.outputs.open == 'true'
+        if: github.event_name == 'schedule' && github.ref == 'refs/heads/main' && steps.write_window.outputs.open == 'true'
         env:
           CATEGORY_ROLLOUT_SCHEDULED: '1'
         run: python scripts/category_rollout.py --apply
       - name: Validate category JSON and persist both category config and rollout journal
-        if: github.event_name == 'schedule' && github.ref == 'refs/heads/main' && steps.write-window.outputs.open == 'true'
+        if: github.event_name == 'schedule' && github.ref == 'refs/heads/main' && steps.write_window.outputs.open == 'true'
         run: |
           set -eu
           python -m json.tool config/queries.json >/dev/null
@@ -73,7 +73,7 @@ jobs:
       - name: Operational note
         if: always()
         env:
-          WRITE_WINDOW: ${{ steps.write-window.outputs.open }}
+          WRITE_WINDOW: ${{ steps.write_window.outputs.open }}
         run: |
           echo '### Gradual root category expansion' >> "$GITHUB_STEP_SUMMARY"
           if [ "$GITHUB_EVENT_NAME" = schedule ] && [ "$WRITE_WINDOW" = false ]; then
