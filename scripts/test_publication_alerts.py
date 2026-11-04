@@ -14,7 +14,7 @@ from publication_gate import scheduled_gate, main as publication_main, output_de
 from publication_daily_alert import alert_reason, issue_title, notify_once, main as alert_main
 
 
-NOW = datetime(2026, 11, 8, 6, 50, tzinfo=JST)
+NOW = fixtures.SUNDAY  # Matches the fixed affiliate proof and product fixture
 RUN_ID = '41812224400'
 
 
