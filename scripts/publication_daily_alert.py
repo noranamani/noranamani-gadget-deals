@@ -55,16 +55,22 @@ def notify_once(now: datetime, *, run_id: str, reason: str, token: str,
     else:
         raise PipelineError('PUBLICATION_ALERT_PAGINATION_LIMIT')
     run = 'https://github.com/' + REPOSITORY + '/actions/runs/' + run_id
-    body = ('GitHub Actionsの定期補完で、当日分のサイト公開または週次素材に要確認の状態を検出しました。'
-            '\n\n- 判定コード: `' + reason + '`'
-            '\n- 確認対象: ' + run
-            '\n\n**注意:** この通知は公開成功の証拠ではありません。'
-            ' 当日分のPublish Pages成功を実行ログで確認し、必要であれば公開されている日次記事も照合してください。'
-            '\n\n安全条件: 古い商品データや記事を再公開しない。'
-            '鮮度・ハッシュ検証を解除しない。'
-            '公開要求/クリックの結果が不明なときは再送しない。'
-            '\n\nこのIssueは同じJST日に1件のみ作成されます。'
-            '以後の定期実行は同じIssueを使い、失敗メールを繰り返し送信しません。')
+    body = '\n'.join([
+        'GitHub Actionsの定期補完で、当日分のサイト公開または週次素材に要確認の状態を検出しました。',
+        '',
+        '- 判定コード: \`' + reason + '\`',
+        '- 確認対象: ' + run,
+        '',
+        '**注意:** この通知は公開成功の証拠ではありません。',
+        '当日分のPublish Pages成功を実行ログで確認し、必要であれば公開されている日次記事も照合してください。',
+        '',
+        '安全条件: 古い商品データや記事を再公開しない。'
+        ' 鮮度・ハッシュ検証を解除しない。'
+        ' 公開要求/クリックの結果が不明なときは再送しない。',
+        '',
+        'このIssueは同じJST日に1件のみ作成されます。'
+        ' 以後の定期実行は同じIssueを使い、失敗メールを繰り返し送信しません。',
+    ])
     created = request('POST', '/issues', {'title': title, 'body': body}, token)
     if not isinstance(created, dict) or not isinstance(created.get('number'), int):
         raise PipelineError('PUBLICATION_ALERT_CREATE_UNCONFIRMED')
