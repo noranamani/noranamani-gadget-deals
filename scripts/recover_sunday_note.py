@@ -1,6 +1,8 @@
 """Safe Sunday note recovery: checks only, never auto-overwrites an existing weekly issue."""
 from __future__ import annotations
 import argparse
+import json
+import os
 from datetime import datetime, timezone, time
 from pathlib import Path
 from pipeline_common import JST, PipelineError, load_json
@@ -24,14 +26,28 @@ def plan(root: Path, now: datetime) -> dict:
     proposal = weekly(root, now)
     if proposal.get("weekLabel") != expected:
         raise PipelineError("NOTE_RECOVERY_GENERATION_MISMATCH")
-    return {"status": "ready", "issue": expected}
+    return {"status": "ready", "issue": expected, "editorial": proposal}
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", type=Path, default=ROOT)
+    parser.add_argument("--apply", action="store_true")
     args = parser.parse_args()
     try:
-        print("GADGET_NOTE_RECOVERY: " + str(plan(args.root, datetime.now(timezone.utc))))
+        result = plan(args.root, datetime.now(timezone.utc))
+        if args.apply:
+            if os.environ.get("GITHUB_EVENT_NAME") != "schedule" or os.environ.get("GADGET_SUNDAY_RECOVERY") != "APPROVED":
+                raise PipelineError("GADGET_RECOVERY_NOT_APPROVED")
+            if result["status"] == "ready":
+                target = args.root / "data/note-weekly.json"
+                temp = target.with_name("note-weekly.json.recovery-tmp")
+                with temp.open("x", encoding="utf-8") as stream:
+                    json.dump(result["editorial"], stream, ensure_ascii=False, indent=2)
+                    stream.write("\\n")
+                temp.replace(target)
+                result["status"] = "written_current_week_from_verified_source"
+        result.pop("editorial", None)
+        print("GADGET_NOTE_RECOVERY: " + str(result))
         return 0
     except PipelineError as exc:
         print("GADGET_NOTE_RECOVERY_STOPPED: " + str(exc))
