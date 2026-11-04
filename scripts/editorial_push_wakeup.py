@@ -32,7 +32,8 @@ def slot_delay(now: datetime, pushed: datetime) -> float | None:
     now_local, pushed_local = now.astimezone(JST), pushed.astimezone(JST)
     if now_local.date() != pushed_local.date():
         return None  # A next-day delayed push may not wake a new day's site.
-    if now_local.time() < EARLIEST or now_local.time() > LATEST:
+    if (now_local.time() < EARLIEST or now_local.time() > LATEST
+            or pushed_local.time() < EARLIEST):
         return None
     if pushed > now + timedelta(minutes=2) or now - pushed > MAX_EVENT_AGE:
         return None
