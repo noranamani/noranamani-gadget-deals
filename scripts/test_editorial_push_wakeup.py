@@ -1,13 +1,11 @@
 """Offline boundary tests for the guarded editorial push fallback."""
 import unittest
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
 from unittest.mock import patch
 
-from pipeline_common import PipelineError
+from pipeline_common import JST, PipelineError
 from editorial_push_wakeup import dispatch_allowed, slot_delay, run_plan
 
-JST = ZoneInfo("Asia/Tokyo")
 def at(hour, minute=0, day=4):
     return datetime(2026, 11, day, hour, minute, tzinfo=JST)
 
