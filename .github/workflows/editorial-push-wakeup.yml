@@ -1,0 +1,48 @@
+name: Wake gadget publication from verified Windows editorial push
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'data/editorial.json'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: write
+concurrency:
+  group: gadget-editorial-push-wakeup
+  cancel-in-progress: false
+jobs:
+  wakeup:
+    if: github.repository == 'noranamani/noranamani-gadget-deals' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run offline fallback regression suite
+        run: python -X utf8 -m unittest discover -s scripts -p 'test_editorial_push_wakeup.py' -v
+      - name: Wait for 06:50 JST, without posting, on real push only
+        if: github.event_name == 'push'
+        id: slot
+        run: python -X utf8 scripts/editorial_push_wakeup.py slot
+      - name: Recheck fresh main source, active runs, and actual publication receipt
+        if: github.event_name == 'push' && steps.slot.outputs.eligible == 'true'
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python -X utf8 scripts/editorial_push_wakeup.py plan --root "$GITHUB_WORKSPACE"
+      - name: Request the existing guarded publisher exactly once
+        if: github.event_name == 'push' && steps.plan.outputs.eligible == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run windows-daily-publish.yml --ref main
+      - name: Explain the operation
+        if: always()
+        run: |
+          echo 'Editorial wakeup only. Real Pages receipt is checked by windows-daily-publish.yml.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Manual runs never dispatch. Expired, invalid, unknown, or already-running publication conditions stop.' >> "$GITHUB_STEP_SUMMARY"
