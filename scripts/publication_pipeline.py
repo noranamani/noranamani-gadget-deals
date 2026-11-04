@@ -21,7 +21,9 @@ def week_label(end):
     return (end - timedelta(days=6)).strftime('%Y/%m/%d') + '〜' + end.strftime('%Y/%m/%d')
 
 
-def validate_collection(root: Path, now: datetime) -> tuple:
+def validate_collection(root: Path, now: datetime, *, max_age_hours: int = 3) -> tuple:
+    if max_age_hours not in (3, 11):
+        raise PipelineError('COLLECTION_AGE_POLICY_INVALID')
     products = load_json(root / 'data/products.json')
     history = load_json(root / 'data/history.json')
     status = load_json(root / 'data/collection-status.json')
@@ -39,7 +41,7 @@ def validate_collection(root: Path, now: datetime) -> tuple:
         raise PipelineError('AFFILIATE_CONFIRMATION_REQUIRED')
     collected = timestamp(products.get('updatedAt'))
     today = now.astimezone(JST).date()
-    if (collected.astimezone(JST).date() != today or collected > now or now - collected > timedelta(hours=3)
+    if (collected.astimezone(JST).date() != today or collected > now or now - collected > timedelta(hours=max_age_hours)
             or (collected.astimezone(JST).hour, collected.astimezone(JST).minute) < (6, 10)):
         raise PipelineError('PRODUCTS_STALE_OR_FUTURE')
     if [c['id'] for c in products.get('categories', [])] != [q['id'] for q in queries]:
@@ -47,8 +49,8 @@ def validate_collection(root: Path, now: datetime) -> tuple:
     return products, history, status, queries
 
 
-def validate_daily(root: Path, now: datetime) -> dict:
-    products, history, status, queries = validate_collection(root, now)
+def validate_daily(root: Path, now: datetime, *, max_age_hours: int = 3) -> dict:
+    products, history, status, queries = validate_collection(root, now, max_age_hours=max_age_hours)
     editorial = load_json(root / 'data/editorial.json')
     collected, edited = timestamp(products.get('updatedAt')), timestamp(editorial.get('generatedAt'))
     today = now.astimezone(JST).date()
@@ -70,8 +72,8 @@ def validate_daily(root: Path, now: datetime) -> dict:
     return editorial
 
 
-def validate_publication(root: Path, now: datetime) -> dict:
-    editorial = validate_daily(root, now)
+def validate_publication(root: Path, now: datetime, *, max_age_hours: int = 3) -> dict:
+    editorial = validate_daily(root, now, max_age_hours=max_age_hours)
     status = load_json(root / 'data/collection-status.json')
     weekly = load_json(root / 'data/note-weekly.json')
     if not isinstance(weekly, dict):
@@ -112,7 +114,7 @@ def validate_purpose(root: Path, now: datetime, purpose: str) -> dict:
         raise PipelineError('NOTE_NOT_DUE')
     if purpose not in ('combined', 'note'):
         raise PipelineError('PUBLICATION_CONTEXT_INVALID')
-    return validate_publication(root, now)
+    return validate_publication(root, now, max_age_hours=11 if purpose == 'note' else 3)
 
 
 def run_script(root: Path, name: str, *args):
