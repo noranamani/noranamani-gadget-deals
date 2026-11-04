@@ -1,0 +1,60 @@
+name: Gadget Sunday note material recovery (no note.com writes)
+on:
+  workflow_dispatch:
+  schedule:
+    # 07:05 and 07:35 JST Sunday; separate from Pages deployment.
+    - cron: '5 22 * * 6'
+    - cron: '35 22 * * 6'
+permissions:
+  contents: write
+concurrency:
+  group: gadget-sunday-note-materials
+  cancel-in-progress: false
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Offline source and publication safety checks
+        run: python -X utf8 -m unittest discover -s scripts -p 'test_sunday_note_recovery.py' -v
+      - id: guard
+        name: Check verified editorial; on schedule recover missing current Sunday editorial
+        shell: bash
+        env:
+          GADGET_SUNDAY_RECOVERY: APPROVED
+        run: |
+          set -eu
+          if [ "$GITHUB_EVENT_NAME" != schedule ]; then
+            python -X utf8 scripts/recover_sunday_note.py
+            echo 'Manual request: no files or note articles written.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          python -X utf8 scripts/recover_sunday_note.py --apply
+          echo 'eligible=true' >> "$GITHUB_OUTPUT"
+      - name: Prepare validated Sunday note files without deploying Pages
+        if: steps.guard.outputs.eligible == 'true'
+        run: |
+          python -X utf8 scripts/publication_pipeline.py prepare --purpose note --root "$GITHUB_WORKSPACE" --output "$RUNNER_TEMP/weekly-note" --source-commit "$(git rev-parse HEAD)"
+      - name: Commit current-week editorial and note bundle together, only if changed
+        if: steps.guard.outputs.eligible == 'true'
+        shell: bash
+        run: |
+          set -eu
+          cp -R "$RUNNER_TEMP/weekly-note/bundle/note/." note/
+          git add -- data/note-weekly.json note/latest note/archive
+          if git diff --cached --quiet; then
+            echo 'Already-current weekly note bundle: no commit, no duplicate.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git config user.name 'gadget-note-material-bot'
+          git config user.email 'gadget-note-material-bot@users.noreply.github.com'
+          git commit -m 'note: publish verified current Sunday source bundle'
+          git push origin HEAD:main
+          echo 'Validated note materials saved; note.com publication is a separate guarded workflow.' >> "$GITHUB_STEP_SUMMARY"
