@@ -124,13 +124,19 @@ def decide(config: dict, state: dict, queries: list, products: dict, *, now: dat
     validate(config, state, queries)
     if now.tzinfo is None:
         raise ValueError("TIMEZONE_REQUIRED")
-    today = now.astimezone(JST).date()
+    local = now.astimezone(JST)
+    # Prepare the next Sunday's category after Saturday's 06:10 collection
+    # and publication, BEFORE Sunday's 06:10 collection. This leaves a
+    # 14h45m safe window even if the GitHub scheduler is several hours late.
+    # The recorded category date remains the upcoming Sunday.
+    target = rollout_sunday(now)
     if not config["enabled"]:
         return _result("disabled")
+    if target is None:
+        return _result("not_sunday")
+    today = target
     if today.isoformat() < config["first_addition_jst"]:
         return _result("waiting_until_start", note=config["first_addition_jst"])
-    if today.weekday() != 6:
-        return _result("not_sunday")
     if len(queries) >= config["max_total_categories"]:
         return _result("category_cap_reached")
     if state["history"]:
@@ -173,9 +179,24 @@ def decide(config: dict, state: dict, queries: list, products: dict, *, now: dat
     return _result("candidate_pool_exhausted")
 
 
+def rollout_sunday(now: datetime):
+    """Sunday issue date for Saturday afternoon or Sunday; not a write permit."""
+    local = now.astimezone(JST)
+    if local.weekday() == 5 and local.time() >= time(15, 0):
+        return local.date() + timedelta(days=1)
+    if local.weekday() == 6:
+        return local.date()
+    return None
+
+
 def require_apply_window(now: datetime) -> None:
     local = now.astimezone(JST)
-    if local.weekday() != 6 or not time(5, 0) <= local.time() <= time(6, 0):
+    # On Saturday the 06:10 fixed-IP collection has finished.  A very late
+    # scheduled job can still safely update queries before Sunday collection.
+    # End at 05:45, keeping at least 25 minutes before the next collector.
+    saturday = local.weekday() == 5 and local.time() >= time(15, 0)
+    sunday = local.weekday() == 6 and local.time() <= time(5, 45)
+    if not (saturday or sunday):
         raise ValueError('CATEGORY_ROLLOUT_OUTSIDE_SAFE_WINDOW')
 
 
@@ -205,7 +226,7 @@ def apply(root: Path, *, now: datetime, allow_write: bool) -> dict:
     new_queries = [*queries, new_row]
     new_state = {"schema_version": 1, "history": [
         *state["history"],
-        {"id": new_row["id"], "date_jst": now.astimezone(JST).date().isoformat(),
+        {"id": new_row["id"], "date_jst": rollout_sunday(now).isoformat(),
          "query_sha256": hashlib.sha256(json.dumps(
              new_row, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()}
     ]}
