@@ -9,10 +9,12 @@ on:
       - 'data/category-expansion-state.json'
       - '.github/workflows/category-expansion.yml'
   schedule:
-    # Sunday 05:15 JST = Saturday 20:15 UTC.
-    # Earliest addition 2026-11-01: skip the first Windows migration Sunday.
-    # Finish before the Windows 06:10 JST registered-IP collector.
-    - cron: '15 20 * * 6'
+    # Saturday JST staging after the 06:10 fixed-IP collector, ahead of
+    # Sunday's collection. Three independent opportunities tolerate a
+    # significantly delayed GitHub scheduler (safe window Sat 15:00-Sun 05:45).
+    - cron: '15 6 * * 6'   # Saturday 15:15 JST
+    - cron: '15 10 * * 6'  # Saturday 19:15 JST
+    - cron: '15 18 * * 6'  # Sunday 03:15 JST
 
 permissions:
   contents: write
@@ -41,10 +43,10 @@ jobs:
       - name: Show dry-run decision (NO Rakuten API calls)
         run: python scripts/category_rollout.py --check
       - id: write_window
-        name: Check whether delayed GitHub cron can still safely add a category
+        name: Check safe Saturday-to-Sunday category staging window
         if: github.event_name == 'schedule' && github.ref == 'refs/heads/main'
         run: python scripts/category_rollout.py --apply-window-status
-      - name: Add at most ONE vetted root category on scheduled Sundays
+      - name: Add at most ONE vetted root category for the coming Sunday
         if: github.event_name == 'schedule' && github.ref == 'refs/heads/main' && steps.write_window.outputs.open == 'true'
         env:
           CATEGORY_ROLLOUT_SCHEDULED: '1'
@@ -77,8 +79,8 @@ jobs:
         run: |
           echo '### Gradual root category expansion' >> "$GITHUB_STEP_SUMMARY"
           if [ "$GITHUB_EVENT_NAME" = schedule ] && [ "$WRITE_WINDOW" = false ]; then
-            echo 'SAFE SKIP: GitHub cron arrived after the 05:00-06:00 JST write window; no category was added.' >> "$GITHUB_STEP_SUMMARY"
+            echo 'SAFE SKIP: GitHub cron arrived outside the Saturday 15:00-Sunday 05:45 JST write window; no category was added.' >> "$GITHUB_STEP_SUMMARY"
           fi
-          echo 'Max one category per 14 days, earliest 2026-11-01, up to 16 total categories.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Max one category per 14 days (Sunday issue date), earliest 2026-11-01, up to 16 total categories.' >> "$GITHUB_STEP_SUMMARY"
           echo 'No Rakuten API calls; Windows collector reads approved queries at 06:10 JST.' >> "$GITHUB_STEP_SUMMARY"
           echo 'A sparse/uncollected prior category pauses future additions instead of expanding blindly.' >> "$GITHUB_STEP_SUMMARY"
