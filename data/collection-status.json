@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-11-04T21:10:04.685959Z",
-  "sourceCommit": "249ee203438c5a25a9affba2df9b81b6207b4743",
-  "productsSha256": "e0df847a458f827f2e0eb1e0acf669490c3fa99fb5a6637d5786d9bd3fe6b130",
-  "historySha256": "94b01e783a70166ddebc63e884f363a3a4a8db794d66a0bdbcee0503d3bbd308",
+  "collectedAt": "2026-11-05T21:10:03.433873Z",
+  "sourceCommit": "af8579d79fd139afd2b8ca8d22085b3914b292d6",
+  "productsSha256": "c941d8c9ad89ebef33fee4052572c89f207335328acd5584111643d74b7f337c",
+  "historySha256": "82ffbf5513684a56c6969a334b69c981f9a5ef9616cddaf88fcb5ccd29eb5465",
   "queriesSha256": "d2810371919a8bf7f5cfa1afc8f705ef3d788de420a9361d4b014e025d00fb8a",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
@@ -11,7 +11,7 @@
   "categories": [
     {
       "id": "usb-charger",
-      "fetchedUnique": 52,
+      "fetchedUnique": 55,
       "displayed": 18
     },
     {
@@ -51,9 +51,9 @@
     }
   ],
   "historyPreservation": {
-    "previousKeys": 503,
-    "previousRecords": 6963,
-    "currentKeys": 507,
-    "currentRecords": 7370
+    "previousKeys": 507,
+    "previousRecords": 7370,
+    "currentKeys": 512,
+    "currentRecords": 7780
   }
 }
