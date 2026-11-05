@@ -12,10 +12,10 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from category_rollout import JST, apply, decide, validate, apply_window_open
+from category_rollout import JST, apply, decide, validate, apply_window_open, rollout_sunday
 
-SUNDAY = datetime(2026, 10, 25, 6, 0, tzinfo=JST)
-NEXT = datetime(2026, 11, 8, 6, 0, tzinfo=JST)
+SUNDAY = datetime(2026, 10, 25, 5, 30, tzinfo=JST)
+NEXT = datetime(2026, 11, 8, 5, 30, tzinfo=JST)
 BASE = {
     "id": "usb-charger", "name": "USB充電器", "keyword": "USB PD 充電器",
     "minPrice": 500, "maxPrice": 10000,
@@ -46,8 +46,11 @@ def seed(now=SUNDAY):
 
 class CategorySafetyTests(unittest.TestCase):
     def test_delayed_sunday_cron_is_safe_skip_without_modifying_queries(self):
-        self.assertTrue(apply_window_open(datetime(2026, 11, 1, 5, 15, tzinfo=JST)))
-        self.assertTrue(apply_window_open(datetime(2026, 11, 1, 5, 59, tzinfo=JST)))
+        self.assertTrue(apply_window_open(datetime(2026, 10, 31, 15, 15, tzinfo=JST)))
+        self.assertTrue(apply_window_open(datetime(2026, 10, 31, 23, 30, tzinfo=JST)))
+        self.assertTrue(apply_window_open(datetime(2026, 11, 1, 5, 45, tzinfo=JST)))
+        self.assertFalse(apply_window_open(datetime(2026, 10, 31, 14, 59, tzinfo=JST)))
+        self.assertFalse(apply_window_open(datetime(2026, 11, 1, 5, 46, tzinfo=JST)))
         self.assertFalse(apply_window_open(datetime(2026, 11, 1, 8, 23, tzinfo=JST)))
         self.assertFalse(apply_window_open(datetime(2026, 11, 2, 5, 15, tzinfo=JST)))
         root=Path(__file__).resolve().parents[1]
@@ -55,6 +58,40 @@ class CategorySafetyTests(unittest.TestCase):
         self.assertIn('--apply-window-status',y)
         self.assertIn("steps.write_window.outputs.open == 'true'",y)
         self.assertIn("if [ \"$GITHUB_EVENT_NAME\" = schedule ]",y)
+
+    def test_saturday_window_stages_upcoming_sunday_once(self):
+        saturday = datetime(2026, 10, 31, 19, 15, tzinfo=JST)
+        self.assertEqual(rollout_sunday(saturday).isoformat(), "2026-11-01")
+        self.assertEqual(rollout_sunday(SUNDAY).isoformat(), "2026-10-25")
+        cfg, state, qs, products = seed(saturday)
+        cfg["first_addition_jst"] = "2026-11-01"
+        self.assertEqual(decide(cfg, state, qs, products, now=saturday)["candidate_id"], "power-bank")
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for rel, value in {
+                "config/category-expansion.json": cfg,
+                "data/category-expansion-state.json": state,
+                "config/queries.json": qs,
+                "data/products.json": products,
+            }.items():
+                target = root / rel
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(json.dumps(value, ensure_ascii=False), encoding="utf-8")
+            original = os.environ.get("CATEGORY_ROLLOUT_SCHEDULED")
+            try:
+                os.environ["CATEGORY_ROLLOUT_SCHEDULED"] = "1"
+                done = apply(root, now=saturday, allow_write=True)
+                self.assertEqual(done["action"], "added_to_queries")
+                recorded = json.loads((root/"data/category-expansion-state.json").read_text(encoding="utf-8"))
+                self.assertEqual(recorded["history"][0]["date_jst"], "2026-11-01")
+                self.assertEqual(apply(root, now=saturday, allow_write=True)["action"], "cooldown")
+                self.assertEqual(apply(root, now=datetime(2026, 11, 1, 5, 15, tzinfo=JST),
+                                       allow_write=True)["action"], "cooldown")
+            finally:
+                if original is None:
+                    os.environ.pop("CATEGORY_ROLLOUT_SCHEDULED", None)
+                else:
+                    os.environ["CATEGORY_ROLLOUT_SCHEDULED"] = original
 
     def test_starts_only_on_or_after_oct_25_and_on_sundays(self):
         cfg, state, qs, products = seed()
