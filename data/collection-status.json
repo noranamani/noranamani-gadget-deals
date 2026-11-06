@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-11-05T21:10:03.433873Z",
-  "sourceCommit": "af8579d79fd139afd2b8ca8d22085b3914b292d6",
-  "productsSha256": "c941d8c9ad89ebef33fee4052572c89f207335328acd5584111643d74b7f337c",
-  "historySha256": "82ffbf5513684a56c6969a334b69c981f9a5ef9616cddaf88fcb5ccd29eb5465",
+  "collectedAt": "2026-11-06T21:10:03.317958Z",
+  "sourceCommit": "c2a6fd198d585820bb0ec77a5247d336001c0de7",
+  "productsSha256": "3ca31de441affd42df27f154e9573d8dc3b3e06372010a494a3b5ee5e39e9b0d",
+  "historySha256": "6b94e20b9d555fedb50d5e194cae2b064c159f785515bba0b174e0b1a3a33f03",
   "queriesSha256": "d2810371919a8bf7f5cfa1afc8f705ef3d788de420a9361d4b014e025d00fb8a",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
@@ -16,7 +16,7 @@
     },
     {
       "id": "wireless-charger",
-      "fetchedUnique": 50,
+      "fetchedUnique": 51,
       "displayed": 18
     },
     {
@@ -31,12 +31,12 @@
     },
     {
       "id": "car-phone-holder",
-      "fetchedUnique": 58,
+      "fetchedUnique": 60,
       "displayed": 18
     },
     {
       "id": "carplay-android-auto",
-      "fetchedUnique": 52,
+      "fetchedUnique": 53,
       "displayed": 18
     },
     {
@@ -51,9 +51,9 @@
     }
   ],
   "historyPreservation": {
-    "previousKeys": 507,
-    "previousRecords": 7370,
-    "currentKeys": 512,
-    "currentRecords": 7780
+    "previousKeys": 512,
+    "previousRecords": 7780,
+    "currentKeys": 521,
+    "currentRecords": 8194
   }
 }
