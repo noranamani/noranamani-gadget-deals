@@ -1,17 +1,17 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-11-06T21:10:03.317958Z",
-  "sourceCommit": "c2a6fd198d585820bb0ec77a5247d336001c0de7",
-  "productsSha256": "3ca31de441affd42df27f154e9573d8dc3b3e06372010a494a3b5ee5e39e9b0d",
-  "historySha256": "6b94e20b9d555fedb50d5e194cae2b064c159f785515bba0b174e0b1a3a33f03",
-  "queriesSha256": "d2810371919a8bf7f5cfa1afc8f705ef3d788de420a9361d4b014e025d00fb8a",
+  "collectedAt": "2026-11-07T21:10:03.443711Z",
+  "sourceCommit": "f163f613b6fe9341847142fb3c020d916b4a257e",
+  "productsSha256": "7e7163d05e039e33837b349b38316707b751ba121b36d5fe6ab7e32cb3efcab7",
+  "historySha256": "cc9978d62eb1a93e3466758a85f415b958e6ca31f38cd7c21b96d2f3ec344e8a",
+  "queriesSha256": "78d768738717b3a783ed0204693caac0dad0ce575dc6b90bae27d2616433e4cb",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
   "affiliateVerificationExpiresAt": "2026-11-20T05:37:21.374999+00:00",
   "categories": [
     {
       "id": "usb-charger",
-      "fetchedUnique": 55,
+      "fetchedUnique": 56,
       "displayed": 18
     },
     {
@@ -46,14 +46,19 @@
     },
     {
       "id": "mobile-router",
-      "fetchedUnique": 37,
+      "fetchedUnique": 38,
+      "displayed": 18
+    },
+    {
+      "id": "power-bank",
+      "fetchedUnique": 49,
       "displayed": 18
     }
   ],
   "historyPreservation": {
-    "previousKeys": 512,
-    "previousRecords": 7780,
-    "currentKeys": 521,
-    "currentRecords": 8194
+    "previousKeys": 521,
+    "previousRecords": 8194,
+    "currentKeys": 572,
+    "currentRecords": 8659
   }
 }
