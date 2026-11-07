@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-11-06T21:30:01.023605+00:00",
-  "sourceProductsSha256": "3ca31de441affd42df27f154e9573d8dc3b3e06372010a494a3b5ee5e39e9b0d",
+  "generatedAt": "2026-11-07T21:30:00.972360+00:00",
+  "sourceProductsSha256": "7e7163d05e039e33837b349b38316707b751ba121b36d5fe6ab7e32cb3efcab7",
   "dailyHeadline": "ガジェットの価格比較と価格履歴",
   "dailySummary": "掲載商品の価格・レビュー件数・送料条件を比較できます。値下がり候補は保存済みの価格履歴に対する判定で、市場全体の最安値を示すものではありません。",
   "featuredDeals": [
@@ -93,6 +93,15 @@
       "categoryId": "mobile-router",
       "topPickCode": "",
       "summary": "モバイルルーターの掲載価格・レビュー件数・送料条件を比較できます。",
+      "watchouts": [
+        "送料やポイント条件は販売ページで確認してください。",
+        "保存価格との比較であり、市場全体の最安値ではありません。"
+      ]
+    },
+    {
+      "categoryId": "power-bank",
+      "topPickCode": "",
+      "summary": "モバイルバッテリーの掲載価格・レビュー件数・送料条件を比較できます。",
       "watchouts": [
         "送料やポイント条件は販売ページで確認してください。",
         "保存価格との比較であり、市場全体の最安値ではありません。"
