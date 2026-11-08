@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-11-07T21:10:03.443711Z",
-  "sourceCommit": "f163f613b6fe9341847142fb3c020d916b4a257e",
-  "productsSha256": "7e7163d05e039e33837b349b38316707b751ba121b36d5fe6ab7e32cb3efcab7",
-  "historySha256": "cc9978d62eb1a93e3466758a85f415b958e6ca31f38cd7c21b96d2f3ec344e8a",
+  "collectedAt": "2026-11-08T21:10:03.318784Z",
+  "sourceCommit": "e9477502ef91a323e167fd2fe39d0e715831a477",
+  "productsSha256": "80ca95f66fc538fba52ce181fd14cfb7e9ec9f27acdf6254a6b8f7f950553a85",
+  "historySha256": "080e7b24ca36b7a667a56a3408b40c54d938d1de4d6b7b9d386cfb2d0f2e9473",
   "queriesSha256": "78d768738717b3a783ed0204693caac0dad0ce575dc6b90bae27d2616433e4cb",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
@@ -56,9 +56,9 @@
     }
   ],
   "historyPreservation": {
-    "previousKeys": 521,
-    "previousRecords": 8194,
-    "currentKeys": 572,
-    "currentRecords": 8659
+    "previousKeys": 572,
+    "previousRecords": 8659,
+    "currentKeys": 573,
+    "currentRecords": 9124
   }
 }
