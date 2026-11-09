@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-11-08T21:10:03.318784Z",
-  "sourceCommit": "e9477502ef91a323e167fd2fe39d0e715831a477",
-  "productsSha256": "80ca95f66fc538fba52ce181fd14cfb7e9ec9f27acdf6254a6b8f7f950553a85",
-  "historySha256": "080e7b24ca36b7a667a56a3408b40c54d938d1de4d6b7b9d386cfb2d0f2e9473",
+  "collectedAt": "2026-11-09T21:10:03.342787Z",
+  "sourceCommit": "34dbe795f4483839e9228e495a8d7d32ce3296a4",
+  "productsSha256": "e8202f0e82c22dea111bbb5e080f435eefcf327caddabc1e74fccc1ef45ccbf2",
+  "historySha256": "81aaba5b2d0f487658ccad113a975dbb0d25e81c9e8620b43f4dbb0be0c65e14",
   "queriesSha256": "78d768738717b3a783ed0204693caac0dad0ce575dc6b90bae27d2616433e4cb",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
@@ -46,7 +46,7 @@
     },
     {
       "id": "mobile-router",
-      "fetchedUnique": 38,
+      "fetchedUnique": 37,
       "displayed": 18
     },
     {
@@ -56,9 +56,9 @@
     }
   ],
   "historyPreservation": {
-    "previousKeys": 572,
-    "previousRecords": 8659,
+    "previousKeys": 573,
+    "previousRecords": 9124,
     "currentKeys": 573,
-    "currentRecords": 9124
+    "currentRecords": 9588
   }
 }
