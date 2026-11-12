@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-11-10T21:10:03.672162Z",
-  "sourceCommit": "d938c978384642bc808d9e01c50d0f6f2ef66321",
-  "productsSha256": "d81fa554793db8fb16aec6d2369edeec0213207522c6b74d46571e1d7f3bc1eb",
-  "historySha256": "82d4203c43654bfa2a8e86e8b03feb48e463e675ffb265030bf82d45feeb0139",
+  "collectedAt": "2026-11-12T21:10:03.636570Z",
+  "sourceCommit": "860b5e06a2e0c760dea31c854226340b6b0fcd1c",
+  "productsSha256": "bc740faed8ea8d88c3b054178d3c7265bd2236895af4939cb164280de91341cf",
+  "historySha256": "8bb31c29ccc1ace430f05b1d66468941912d10d447ade2b21172f45f5e48da77",
   "queriesSha256": "78d768738717b3a783ed0204693caac0dad0ce575dc6b90bae27d2616433e4cb",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
@@ -11,22 +11,22 @@
   "categories": [
     {
       "id": "usb-charger",
-      "fetchedUnique": 56,
+      "fetchedUnique": 55,
       "displayed": 18
     },
     {
       "id": "wireless-charger",
-      "fetchedUnique": 51,
+      "fetchedUnique": 49,
       "displayed": 18
     },
     {
       "id": "microsd",
-      "fetchedUnique": 50,
+      "fetchedUnique": 51,
       "displayed": 18
     },
     {
       "id": "car-charger",
-      "fetchedUnique": 50,
+      "fetchedUnique": 51,
       "displayed": 18
     },
     {
@@ -36,7 +36,7 @@
     },
     {
       "id": "carplay-android-auto",
-      "fetchedUnique": 53,
+      "fetchedUnique": 54,
       "displayed": 18
     },
     {
@@ -46,7 +46,7 @@
     },
     {
       "id": "mobile-router",
-      "fetchedUnique": 37,
+      "fetchedUnique": 38,
       "displayed": 18
     },
     {
@@ -56,9 +56,9 @@
     }
   ],
   "historyPreservation": {
-    "previousKeys": 573,
-    "previousRecords": 9588,
-    "currentKeys": 575,
-    "currentRecords": 10052
+    "previousKeys": 575,
+    "previousRecords": 10052,
+    "currentKeys": 588,
+    "currentRecords": 10516
   }
 }
