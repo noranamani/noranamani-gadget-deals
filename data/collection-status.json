@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-11-12T21:10:03.636570Z",
-  "sourceCommit": "860b5e06a2e0c760dea31c854226340b6b0fcd1c",
-  "productsSha256": "bc740faed8ea8d88c3b054178d3c7265bd2236895af4939cb164280de91341cf",
-  "historySha256": "8bb31c29ccc1ace430f05b1d66468941912d10d447ade2b21172f45f5e48da77",
+  "collectedAt": "2026-11-13T21:10:03.670879Z",
+  "sourceCommit": "4908386d4e90376fb89fa8aad57fe638a95b5aec",
+  "productsSha256": "067bc7e29c003a4808cd1ce4a2a878eb4b82b2540dd090d4c6b2ae2af2b37d81",
+  "historySha256": "91f2387e05adbe377f3eddc35fa0fc32187ecce4e729dcb4dee53566a7eebd02",
   "queriesSha256": "78d768738717b3a783ed0204693caac0dad0ce575dc6b90bae27d2616433e4cb",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
@@ -36,7 +36,7 @@
     },
     {
       "id": "carplay-android-auto",
-      "fetchedUnique": 54,
+      "fetchedUnique": 53,
       "displayed": 18
     },
     {
@@ -46,7 +46,7 @@
     },
     {
       "id": "mobile-router",
-      "fetchedUnique": 38,
+      "fetchedUnique": 39,
       "displayed": 18
     },
     {
@@ -56,9 +56,9 @@
     }
   ],
   "historyPreservation": {
-    "previousKeys": 575,
-    "previousRecords": 10052,
-    "currentKeys": 588,
-    "currentRecords": 10516
+    "previousKeys": 588,
+    "previousRecords": 10516,
+    "currentKeys": 590,
+    "currentRecords": 10980
   }
 }
