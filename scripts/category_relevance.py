@@ -24,7 +24,9 @@ def is_relevant(category_id: str, title: str) -> bool:
     if category_id == "microsd":
         # Reader-only product; never reject a memory card merely because a
         # conversion adapter is included.
-        return not has(r"カードリーダー|カードライター|メモリカードリーダー")
+        reader = has(r"カードリーダー|カードライター|メモリカードリーダー")
+        card = has(r"(?:micro\\s*sd|マイクロ\\s*sd)\\s*(?:カード|メモリーカード)")
+        return not (reader and not card)
     if category_id == "car-charger":
         return not has(r"usb[-ー ]?c\s*から\s*シガーソケット|シガーソケット\s*メス|電源専用\s*変換アダプター")
     if category_id == "mobile-router":
