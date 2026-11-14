@@ -8,6 +8,8 @@ import statistics
 from datetime import datetime, timezone
 from pathlib import Path
 
+from category_relevance import is_relevant
+
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG_DIR = ROOT / "config"
 DATA_DIR = ROOT / "data"
@@ -153,13 +155,15 @@ def build_products(cfg: dict, queries: list, history: dict, requester, now=None)
                     merged[code] = item
 
         raw_items = list(merged.values())
-        prices = [int(x.get("itemPrice") or 0) for x in raw_items if int(x.get("itemPrice") or 0) > 0]
+        prices = [int(x.get("itemPrice") or 0) for x in raw_items
+                  if int(x.get("itemPrice") or 0) > 0
+                  and is_relevant(q['id'], str(x.get('itemName') or ''))]
         items = []
 
         for item in raw_items:
             code = str(item.get("itemCode") or "")
             price = int(item.get("itemPrice") or 0)
-            if not code or price <= 0:
+            if not code or price <= 0 or not is_relevant(q['id'], str(item.get('itemName') or '')):
                 continue
             review_count = int(item.get("reviewCount") or 0)
             metrics = price_metrics(code, price, metric_history, min_samples)
