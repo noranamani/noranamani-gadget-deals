@@ -20,6 +20,7 @@ class RelevanceTests(unittest.TestCase):
     def test_keeps_plausible_products_and_card_adapter_bundles(self):
         good = [
             ("microsd", "microSDカード 128GB 変換アダプタ付"),
+            ("microsd", "マイクロSDカード 256GB 無料のUSB3.0カードリーダー"),
             ("usb-charger", "USB Type-C AC充電器 PD65W"),
             ("wireless-charger", "Qi2 ワイヤレス充電器 15W USB-C入力"),
             ("mobile-router", "Aterm MR05LN SIMフリー モバイルWi-Fiルーター"),
