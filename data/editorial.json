@@ -1,11 +1,15 @@
 {
-  "generatedAt": "2026-11-13T21:30:01.878099+00:00",
-  "sourceProductsSha256": "067bc7e29c003a4808cd1ce4a2a878eb4b82b2540dd090d4c6b2ae2af2b37d81",
+  "generatedAt": "2026-11-14T21:30:01.079882+00:00",
+  "sourceProductsSha256": "9f656819058c83456291ae0e559fab48c1bc7bc757fbf36dba7d947b5580ba22",
   "dailyHeadline": "ガジェットの価格比較と価格履歴",
   "dailySummary": "掲載商品の価格・レビュー件数・送料条件を比較できます。値下がり候補は保存済みの価格履歴に対する判定で、市場全体の最安値を示すものではありません。",
   "featuredDeals": [
     {
       "code": "creaswing:10000591",
+      "reason": "保存済みの価格履歴に対する値下がり候補です。販売条件を確認してください。"
+    },
+    {
+      "code": "ukachi:10003907",
       "reason": "保存済みの価格履歴に対する値下がり候補です。販売条件を確認してください。"
     }
   ],
