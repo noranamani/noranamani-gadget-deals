@@ -1,6 +1,7 @@
 """Publication proof/ownership regression tests; synthetic API and private fixtures only."""
 import io
 import json
+import shutil
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -324,6 +325,11 @@ class IntegrationTests(unittest.TestCase):
 
     def test_november8_first_sunday_creates_valid_note_bundle_from_real_ordered_fixture(self):
         fixture = self.setup_pipeline()
+        # This is an initial 2026-11-08 build test. The fixture copied from
+        # production can already contain that Sunday's later archive.
+        # Remove it ONLY from the isolated test directory; production is untouched.
+        assert fixture.root != fixtures.ROOT
+        shutil.rmtree(fixture.root/'note/archive/2026-11-08', ignore_errors=True)
         fixture.current = NOW.replace(minute=10)
         fixture.fixture.edit('products.json', updatedAt=fixture.current.isoformat())
         fixture.fixture.edit('collection-status.json', collectedAt=fixture.current.isoformat(),
