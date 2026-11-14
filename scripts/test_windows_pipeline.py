@@ -89,7 +89,7 @@ class CollectionTests(TemporarySource):
         result = self.collect()
         generation = Path(result['generation'])
         after = load_json(generation/'data/history.json')
-        self.assertEqual(len(result['status']['categories']), 8)
+        self.assertEqual(len(result['status']['categories']), len(load_json(self.root/'config/queries.json')))
         self.assertTrue(all(c['displayed']==18 for c in result['status']['categories']))
         self.assertEqual(history_preserved(before, after)['previousRecords'], sum(map(len,before.values())))
         self.assertEqual(source_hashes(self.root), hashes)
