@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-11-13T21:10:03.670879Z",
-  "sourceCommit": "4908386d4e90376fb89fa8aad57fe638a95b5aec",
-  "productsSha256": "067bc7e29c003a4808cd1ce4a2a878eb4b82b2540dd090d4c6b2ae2af2b37d81",
-  "historySha256": "91f2387e05adbe377f3eddc35fa0fc32187ecce4e729dcb4dee53566a7eebd02",
+  "collectedAt": "2026-11-14T21:10:03.925474Z",
+  "sourceCommit": "5ce04ba791d13db45f2ea1a43354478b2371a378",
+  "productsSha256": "9f656819058c83456291ae0e559fab48c1bc7bc757fbf36dba7d947b5580ba22",
+  "historySha256": "9035ef12555f530701082006fcb7db0cb72f90191c8caa08c372f2f8491f5e48",
   "queriesSha256": "78d768738717b3a783ed0204693caac0dad0ce575dc6b90bae27d2616433e4cb",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
@@ -26,7 +26,7 @@
     },
     {
       "id": "car-charger",
-      "fetchedUnique": 51,
+      "fetchedUnique": 50,
       "displayed": 18
     },
     {
@@ -51,14 +51,14 @@
     },
     {
       "id": "power-bank",
-      "fetchedUnique": 49,
+      "fetchedUnique": 50,
       "displayed": 18
     }
   ],
   "historyPreservation": {
-    "previousKeys": 588,
-    "previousRecords": 10516,
+    "previousKeys": 590,
+    "previousRecords": 10980,
     "currentKeys": 590,
-    "currentRecords": 10980
+    "currentRecords": 11444
   }
 }
