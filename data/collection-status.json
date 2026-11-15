@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-11-14T21:10:03.925474Z",
-  "sourceCommit": "5ce04ba791d13db45f2ea1a43354478b2371a378",
-  "productsSha256": "9f656819058c83456291ae0e559fab48c1bc7bc757fbf36dba7d947b5580ba22",
-  "historySha256": "9035ef12555f530701082006fcb7db0cb72f90191c8caa08c372f2f8491f5e48",
+  "collectedAt": "2026-11-15T21:10:03.641841Z",
+  "sourceCommit": "e4f357a3f67900f9e07c5b05b1ce3a3c491a9c40",
+  "productsSha256": "83ad3a22a9152b057e2bd2ebba81c3e3debe9277b5ad150bd2f76e2df6c04665",
+  "historySha256": "9a9dac8a676c37945ab20999e937ad8ab88ca28becf436242adfa9a98ce8e1bd",
   "queriesSha256": "78d768738717b3a783ed0204693caac0dad0ce575dc6b90bae27d2616433e4cb",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
@@ -11,7 +11,7 @@
   "categories": [
     {
       "id": "usb-charger",
-      "fetchedUnique": 55,
+      "fetchedUnique": 54,
       "displayed": 18
     },
     {
@@ -26,7 +26,7 @@
     },
     {
       "id": "car-charger",
-      "fetchedUnique": 50,
+      "fetchedUnique": 51,
       "displayed": 18
     },
     {
@@ -51,14 +51,14 @@
     },
     {
       "id": "power-bank",
-      "fetchedUnique": 50,
+      "fetchedUnique": 49,
       "displayed": 18
     }
   ],
   "historyPreservation": {
     "previousKeys": 590,
-    "previousRecords": 10980,
-    "currentKeys": 590,
-    "currentRecords": 11444
+    "previousRecords": 11444,
+    "currentKeys": 591,
+    "currentRecords": 11907
   }
 }
