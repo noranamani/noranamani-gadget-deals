@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-11-17T21:10:03.910315Z",
-  "sourceCommit": "a814be18620ccd7a56ed48a570db9eca200416d9",
-  "productsSha256": "2db025083093125e38cd1e18b92cc40388492bde5bb989f15aeaeebf564b7409",
-  "historySha256": "7488004f67b4ffa38c05aba2dabca6f5e94701bd4546dfff7fe36c70d25fcc73",
+  "collectedAt": "2026-11-18T21:10:03.954253Z",
+  "sourceCommit": "986f51f5c4dd4d880567db3b8a0f48cb61d2b84f",
+  "productsSha256": "88f88c784e9fb833a4a588ae6ef48a69c2fb7fcbc6e42548e337a59658e643e3",
+  "historySha256": "7d37e6bb9a4b28ca5d9355a37f59941ed03b5659c7d023f529ab86443a8bd649",
   "queriesSha256": "78d768738717b3a783ed0204693caac0dad0ce575dc6b90bae27d2616433e4cb",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
@@ -51,14 +51,14 @@
     },
     {
       "id": "power-bank",
-      "fetchedUnique": 49,
+      "fetchedUnique": 48,
       "displayed": 18
     }
   ],
   "historyPreservation": {
-    "previousKeys": 591,
-    "previousRecords": 12371,
-    "currentKeys": 594,
-    "currentRecords": 12835
+    "previousKeys": 594,
+    "previousRecords": 12835,
+    "currentKeys": 596,
+    "currentRecords": 13298
   }
 }
