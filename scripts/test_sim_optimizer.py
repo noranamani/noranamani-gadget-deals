@@ -35,7 +35,7 @@ class SimOptimizerTests(unittest.TestCase):
         self.assertIn("入力内容をサーバーへ送信・保存しません", html)
         self.assertIn("公式", html)
         self.assertIn("初年度", html)
-        self.assertIn("容量不足", SIM_JS)
+        self.assertIn("容量が不足", SIM_JS)
         self.assertNotIn("fetch(", SIM_JS)
         self.assertNotIn("localStorage", SIM_JS)
         self.assertNotIn("XMLHttpRequest", SIM_JS)
