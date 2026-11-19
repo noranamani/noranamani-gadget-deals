@@ -37,10 +37,13 @@ class BuildAnalyticsTests(unittest.TestCase):
             pending = item("usb-charger", "c:pending", "65W USB-C充電器 特価候補", saleStart=future)
             bad = item("mobile-router", "c:wrong", "追加チャージ専用モバイルルーター")
             right = item("mobile-router", "c:right", "SIMフリーモバイルルーター", isDeal=False)
-            goods = [valid, option, pending, bad, right]
+            router_case = item("mobile-router", "c:case", "Macaroon SE 専用 モバイルルーター ケース", isDeal=False)
+            ac_brick = item("wireless-charger", "c:ac", "30W AC充電器《当社Qi2 ワイヤレス充電器に最適》", isDeal=False)
+            qi2_pad = item("wireless-charger", "c:pad", "Qi2 15W ワイヤレス充電器", isDeal=False)
+            goods = [valid, option, pending, bad, right, router_case, ac_brick, qi2_pad]
             categories = [{"id": cat, "name": cat, "keyword": cat,
                            "items": [x for x in goods if x["categoryId"] == cat]}
-                          for cat in ("usb-charger", "mobile-router")]
+                          for cat in ("usb-charger", "mobile-router", "wireless-charger")]
             (cfg / "site.json").write_text(json.dumps({"site_name": "Test", "site_url": "https://example.invalid"}))
             (cfg / "analytics.json").write_text('{"ga4_measurement_id": ""}')
             (cfg / "queries.json").write_text(json.dumps([{"id": x["id"], "name": x["name"]} for x in categories]))
