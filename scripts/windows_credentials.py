@@ -18,6 +18,9 @@ PROOF_METHOD = 'official-account-id-match-v1'
 MAINTENANCE_METHOD = 'operator-approved-rakuten-ui-portal-maintenance-v1'
 MAINTENANCE_DAYS = 7
 MAINTENANCE_FILE = 'affiliate-maintenance.json'
+# One-off exception for the 2026-11-09 UI portal outage; cannot be re-used for
+# subsequent expiry cycles without a new reviewed code change.
+MAINTENANCE_ABSOLUTE_END = datetime(2026, 11, 27, 5, 37, 21, 374999, tzinfo=timezone.utc)
 
 
 
@@ -118,7 +121,7 @@ def authorize_maintenance_continuity(proof_path: Path, credentials: Credentials,
         raise PipelineError('AFFILIATE_PROOF_REQUIRED')
     proof, expiry = _validated_proof(proof_path, credentials, now)
     end = expiry + timedelta(days=MAINTENANCE_DAYS)
-    if now < expiry - timedelta(days=30) or now >= end:
+    if now < expiry - timedelta(days=30) or now >= end or end > MAINTENANCE_ABSOLUTE_END:
         raise PipelineError('MAINTENANCE_WINDOW_CLOSED')
     # Never overwrite, roll forward, or refresh a previous authorization.
     if marker.exists():
@@ -157,6 +160,7 @@ def _maintenance_continuity(proof_path: Path, credentials: Credentials,
     if not (original_expiry - timedelta(days=30) <= authorized
             < original_expiry + timedelta(days=MAINTENANCE_DAYS)
             and end == original_expiry + timedelta(days=MAINTENANCE_DAYS)
+            and end <= MAINTENANCE_ABSOLUTE_END
             and now >= original_expiry and authorized <= now < end):
         raise PipelineError('MAINTENANCE_AUTHORIZATION_EXPIRED')
     return {'verified': True, 'mode': 'maintenance_continuity',
