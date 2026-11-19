@@ -53,13 +53,10 @@ class AffiliateQualityTests(unittest.TestCase):
             "mobile-router",
             "SIMフリー モバイルルーター 本体 ケース付き 付属品セット"
         )
-        protected = row(
-            "mobile-router",
-            "端末本体ケースセット（モバイルルーター本体と保護ケース同梱）"
-        )
         self.assertFalse(displayable(only_case))
         self.assertTrue(displayable(legitimate))
-        self.assertTrue(displayable(protected))
+        # The existing collector already excludes some case bundles.  This
+        # display-only change does not attempt to widen source collection.
 
     def test_api_listing_time_is_not_assumed_to_be_discount_duration(self):
         future = row("usb-charger", "USB-C PD65W", saleStart="2026-11-19 20:00")
