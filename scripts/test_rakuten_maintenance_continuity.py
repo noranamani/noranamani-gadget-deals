@@ -69,6 +69,17 @@ class LocalContinuityTests(unittest.TestCase):
             authorize_maintenance_continuity(self.proof_path, CREDS, END)
         self.assertFalse(marker.exists())
 
+    def test_one_time_absolute_outage_cutoff_rejects_newer_proof(self):
+        # The current Rakuten outage exception is NOT a reusable recurring
+        # seven-day bypass for future proof expiry cycles.
+        with tempfile.TemporaryDirectory() as temp:
+            newer_proof = Path(temp) / 'affiliate-proof.json'
+            later = CONFIRMED + timedelta(days=1)
+            record_affiliate_proof(newer_proof, CREDS, CREDS.affiliate_id, later)
+            with self.assertRaisesRegex(PipelineError, 'MAINTENANCE_WINDOW_CLOSED'):
+                authorize_maintenance_continuity(newer_proof, CREDS, later + timedelta(days=29))
+            self.assertFalse(maintenance_path(newer_proof).exists())
+
     def test_rotation_tampering_marker_and_missing_marker_fail_closed(self):
         self.authorize()
         rotated = Credentials(CREDS.application_id, CREDS.access_key, 'new-affiliate')
