@@ -6,6 +6,12 @@ on:
     branches: [develop, main]
 permissions:
   contents: read
+# This workflow is read-only CI: only the latest commit for each PR/branch
+# needs testing. Superseded revisions can stop to reduce redundant
+# GitHub Actions failure/cancellation noise; production workflows are unchanged.
+concurrency:
+  group: gadget-offline-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   offline:
     strategy:
