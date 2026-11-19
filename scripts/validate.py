@@ -89,18 +89,36 @@ def main():
                       DOCS / "deals.html", DOCS / "methodology.html",
                       DOCS / "privacy.html", *category_pages, *comparison_pages]
     site_url = str(load(CONFIG / "site.json").get("site_url") or "").rstrip("/")
+    ga4_id = str(load(CONFIG / "analytics.json").get("ga4_measurement_id") or "").strip()
+    if ga4_id and not re.fullmatch(r"G-[A-Z0-9]{6,16}", ga4_id):
+        fail("GA4_MEASUREMENT_ID_INVALID")
     for path in rendered_pages:
         if not path.exists() or path.stat().st_size < 300:
             fail("RENDERED_PAGE_MISSING_OR_TOO_SMALL")
         text = path.read_text(encoding="utf-8")
         if "楽天アフィリエイト" not in text:
             fail("AFFILIATE_DISCLOSURE_MISSING")
+        if ga4_id:
+            # Audit the actual Pages payload, not just a standalone mock layout.
+            # Every generated HTML page must carry one tag/config pair and
+            # the existing outbound click handler. No analytics request here.
+            tag_url = "https://www.googletagmanager.com/gtag/js?id=" + ga4_id
+            tag_config = 'gtag("config","' + ga4_id + '")'
+            if text.count(tag_url) != 1 or text.count(tag_config) != 1:
+                fail("GA4_TAG_MISSING_OR_DUPLICATE")
+            if 'window.gtag("event", "affiliate_click"' not in text:
+                fail("GA4_AFFILIATE_HANDLER_MISSING")
         # Canonical URLs are self-referential, absolute and match sitemap
         # URLs; this prevents conflicting SEO signals on category pages.
         if site_url:
             expected = site_url + "/" + path.name
             if f'<link rel="canonical" href="{expected}">' not in text:
                 fail("CANONICAL_URL_MISMATCH")
+
+    if ga4_id:
+        privacy_html = (DOCS / "privacy.html").read_text(encoding="utf-8")
+        if "当サイトはGoogle Analytics 4（GA4）を利用" not in privacy_html:
+            fail("GA4_PRIVACY_DISCLOSURE_MISSING")
 
     # Verify original API-returned affiliate URLs survived HTML escaping and
     # every outbound link retains sponsored attributes and product mapping.
@@ -121,8 +139,9 @@ def main():
         for pattern in secret_patterns:
             if re.search(pattern, text):
                 fail(f"possible secret leaked into {path}")
-    print("validation ok: pages=%d affiliate_links=%d"
-          % (audit["pagesChecked"], audit["linksChecked"]))
+    print("validation ok: pages=%d affiliate_links=%d ga4=%s"
+          % (audit["pagesChecked"], audit["linksChecked"],
+             "verified" if ga4_id else "off"))
 
 
 if __name__ == "__main__":
