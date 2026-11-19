@@ -26,7 +26,7 @@ class ProductSelectorTests(unittest.TestCase):
         items.extend([
             item("usb-charger", "c:variant", "20W/65W仕様選択 USB-C充電器", price=100),
             item("usb-charger", "c:unsafe", "65W USB-C充電器", price=250,
-                 reviewCount=0, score=100)
+                 saleStart="2099-01-01 00:00", score=100)
         ])
         return {"categories":[{"id":"usb-charger", "name":"USB-C充電器",
                                "items":items}]}
