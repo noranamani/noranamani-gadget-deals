@@ -98,6 +98,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--check', action='store_true')
     parser.add_argument('--verify-affiliate', type=Path, metavar='PRIVATE_PROOF_FILE')
+    parser.add_argument('--check-affiliate-proof', type=Path, metavar='PRIVATE_PROOF_FILE',
+                        help='Read-only expiry and credential binding check; no API calls')
     args = parser.parse_args()
     try:
         credentials = read_windows_credentials()
@@ -109,6 +111,11 @@ def main() -> int:
             pasted = getpass.getpass('Official account Affiliate ID (hidden; not a link ID): ')
             record_affiliate_proof(args.verify_affiliate, credentials, pasted, datetime.now(timezone.utc))
             print('AFFILIATE_ACCOUNT_CONFIRMATION_RECORDED')
+        elif args.check_affiliate_proof:
+            result = affiliate_proof(args.check_affiliate_proof, credentials, datetime.now(timezone.utc))
+            if not result['verified']:
+                raise PipelineError('AFFILIATE_CONFIRMATION_REQUIRED')
+            print(json.dumps({'affiliateProof': 'valid', 'expiresAt': result['expiresAt']}))
         else:
             print(json.dumps({'windowsCredentialsReadable': {name: True for name in NAMES}}))
         return 0
