@@ -37,9 +37,26 @@ def validate_collection(root: Path, now: datetime, *, max_age_hours: int = 3) ->
             or status.get('siteConfigSha256') != digest(root / 'config/site.json')
             or status.get('collectedAt') != products.get('updatedAt')):
         raise PipelineError('COLLECTION_GENERATION_MISMATCH')
-    if status.get('affiliateVerified') is not True or timestamp(status.get('affiliateVerificationExpiresAt')) <= now:
+    if status.get('affiliateVerified') is not True:
+        raise PipelineError('AFFILIATE_CONFIRMATION_REQUIRED')
+    accepted_until = timestamp(status.get('affiliateVerificationExpiresAt'))
+    if accepted_until <= now:
         raise PipelineError('AFFILIATE_CONFIRMATION_REQUIRED')
     collected = timestamp(products.get('updatedAt'))
+    mode = status.get('affiliateVerificationMode')
+    if mode is not None:
+        if mode != 'maintenance_continuity':
+            raise PipelineError('AFFILIATE_MAINTENANCE_MODE_INVALID')
+        original_expiry = timestamp(status.get('affiliateOriginalProofExpiresAt'))
+        authorized_at = timestamp(status.get('affiliateContinuityAuthorizedAt'))
+        # The cloud has no private Windows proof, so it enforces the public
+        # maximum window and exact meaning of the continuation metadata.
+        if not (original_expiry - timedelta(days=30) <= authorized_at
+                < original_expiry + timedelta(days=7)
+                and accepted_until == original_expiry + timedelta(days=7)
+                and original_expiry <= collected < accepted_until
+                and authorized_at <= collected):
+            raise PipelineError('AFFILIATE_MAINTENANCE_WINDOW_INVALID')
     today = now.astimezone(JST).date()
     if (collected.astimezone(JST).date() != today or collected > now or now - collected > timedelta(hours=max_age_hours)
             or (collected.astimezone(JST).hour, collected.astimezone(JST).minute) < (6, 10)):
