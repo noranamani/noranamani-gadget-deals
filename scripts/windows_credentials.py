@@ -11,10 +11,14 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from pipeline_common import PipelineError, load_json, sha256, timestamp, write_json
+from pipeline_common import PipelineError, json_bytes, load_json, sha256, timestamp, write_json
 
 NAMES = ('RAKUTEN_APP_ID', 'RAKUTEN_ACCESS_KEY', 'RAKUTEN_AFFILIATE_ID')
 PROOF_METHOD = 'official-account-id-match-v1'
+MAINTENANCE_METHOD = 'operator-approved-rakuten-ui-portal-maintenance-v1'
+MAINTENANCE_DAYS = 7
+MAINTENANCE_FILE = 'affiliate-maintenance.json'
+
 
 
 @dataclass(repr=False)
@@ -81,17 +85,94 @@ def record_affiliate_proof(path: Path, credentials: Credentials, pasted_id: str,
                      'verifiedAt': now.isoformat(), 'expiresAt': (now + timedelta(days=30)).isoformat()})
 
 
+def _validated_proof(path: Path, credentials: Credentials, now: datetime) -> tuple[dict, datetime]:
+    """Validate the unchanged original, even after it has expired."""
+    proof = load_json(path)
+    if (not isinstance(proof, dict) or proof.get('schemaVersion') != 1
+            or proof.get('method') != PROOF_METHOD
+            or not hmac.compare_digest(str(proof.get('credentialBinding', '')),
+                                       credential_binding(credentials))):
+        raise PipelineError('AFFILIATE_PROOF_INVALID')
+    verified, expiry = timestamp(proof.get('verifiedAt')), timestamp(proof.get('expiresAt'))
+    if verified > now or not verified < expiry <= verified + timedelta(days=30):
+        raise PipelineError('AFFILIATE_PROOF_INVALID')
+    return proof, expiry
+
+
+def maintenance_path(proof_path: Path) -> Path:
+    """Marker lives next to the private original proof; never in Git."""
+    return proof_path.with_name(MAINTENANCE_FILE)
+
+
+def authorize_maintenance_continuity(proof_path: Path, credentials: Credentials,
+                                     now: datetime) -> dict:
+    """Single-use, local human authorization. Does not edit the original proof."""
+    proof_path = Path(proof_path)
+    code_root = Path(__file__).resolve().parents[1]
+    marker = maintenance_path(proof_path)
+    if (proof_path.is_symlink() or marker.is_symlink()
+            or proof_path.resolve().is_relative_to(code_root)
+            or marker.resolve().is_relative_to(code_root)):
+        raise PipelineError('MAINTENANCE_PATH_MUST_BE_PRIVATE')
+    if not proof_path.is_file():
+        raise PipelineError('AFFILIATE_PROOF_REQUIRED')
+    proof, expiry = _validated_proof(proof_path, credentials, now)
+    end = expiry + timedelta(days=MAINTENANCE_DAYS)
+    if now < expiry - timedelta(days=30) or now >= end:
+        raise PipelineError('MAINTENANCE_WINDOW_CLOSED')
+    # Never overwrite, roll forward, or refresh a previous authorization.
+    if marker.exists():
+        raise PipelineError('MAINTENANCE_ALREADY_AUTHORIZED')
+    record = {'schemaVersion': 1, 'method': MAINTENANCE_METHOD,
+              'credentialBinding': credential_binding(credentials),
+              'proofVerifiedAt': proof['verifiedAt'],
+              'proofExpiresAt': proof['expiresAt'],
+              'authorizedAt': now.isoformat(), 'expiresAt': end.isoformat()}
+    try:
+        with marker.open('xb') as handle:
+            handle.write(json_bytes(record))
+            handle.flush()
+            os.fsync(handle.fileno())
+    except FileExistsError:
+        raise PipelineError('MAINTENANCE_ALREADY_AUTHORIZED') from None
+    return record
+
+
+def _maintenance_continuity(proof_path: Path, credentials: Credentials,
+                            now: datetime, proof: dict, original_expiry: datetime) -> dict:
+    marker_path = maintenance_path(proof_path)
+    if marker_path.is_symlink() or not marker_path.is_file():
+        raise PipelineError('AFFILIATE_PROOF_EXPIRED')
+    marker = load_json(marker_path)
+    if (not isinstance(marker, dict)
+            or marker.get('schemaVersion') != 1
+            or marker.get('method') != MAINTENANCE_METHOD
+            or not hmac.compare_digest(str(marker.get('credentialBinding', '')),
+                                       credential_binding(credentials))
+            or marker.get('proofVerifiedAt') != proof.get('verifiedAt')
+            or marker.get('proofExpiresAt') != proof.get('expiresAt')):
+        raise PipelineError('MAINTENANCE_AUTHORIZATION_INVALID')
+    authorized = timestamp(marker.get('authorizedAt'))
+    end = timestamp(marker.get('expiresAt'))
+    if not (original_expiry - timedelta(days=30) <= authorized
+            < original_expiry + timedelta(days=MAINTENANCE_DAYS)
+            and end == original_expiry + timedelta(days=MAINTENANCE_DAYS)
+            and now >= original_expiry and authorized <= now < end):
+        raise PipelineError('MAINTENANCE_AUTHORIZATION_EXPIRED')
+    return {'verified': True, 'mode': 'maintenance_continuity',
+            'expiresAt': end.isoformat(),
+            'originalProofExpiresAt': original_expiry.isoformat(),
+            'authorizedAt': authorized.isoformat()}
+
+
 def affiliate_proof(path: Path | None, credentials: Credentials, now: datetime) -> dict:
     if path is None or not path.is_file():
         return {'verified': False, 'expiresAt': None}
-    proof = load_json(path)
-    if (proof.get('schemaVersion') != 1 or proof.get('method') != PROOF_METHOD or
-            not hmac.compare_digest(str(proof.get('credentialBinding', '')), credential_binding(credentials))):
-        raise PipelineError('AFFILIATE_PROOF_INVALID')
-    verified, expiry = timestamp(proof.get('verifiedAt')), timestamp(proof.get('expiresAt'))
-    if verified > now or not verified < expiry <= verified + timedelta(days=30) or now >= expiry:
-        raise PipelineError('AFFILIATE_PROOF_EXPIRED')
-    return {'verified': True, 'expiresAt': expiry.isoformat()}
+    proof, expiry = _validated_proof(path, credentials, now)
+    if now < expiry:
+        # A new genuine confirmation always takes precedence over any old marker.
+        return {'verified': True, 'expiresAt': expiry.isoformat(), 'mode': 'official'}
+    return _maintenance_continuity(path, credentials, now, proof, expiry)
 
 
 def main() -> int:
@@ -100,6 +181,8 @@ def main() -> int:
     parser.add_argument('--verify-affiliate', type=Path, metavar='PRIVATE_PROOF_FILE')
     parser.add_argument('--check-affiliate-proof', type=Path, metavar='PRIVATE_PROOF_FILE',
                         help='Read-only expiry and credential binding check; no API calls')
+    parser.add_argument('--authorize-maintenance', type=Path, metavar='PRIVATE_PROOF_FILE',
+                        help='One-time interactive 7-day maintenance authorization')
     args = parser.parse_args()
     try:
         credentials = read_windows_credentials()
@@ -111,11 +194,27 @@ def main() -> int:
             pasted = getpass.getpass('Official account Affiliate ID (hidden; not a link ID): ')
             record_affiliate_proof(args.verify_affiliate, credentials, pasted, datetime.now(timezone.utc))
             print('AFFILIATE_ACCOUNT_CONFIRMATION_RECORDED')
+        elif args.authorize_maintenance:
+            import sys
+            if not sys.stdin.isatty():
+                raise PipelineError('INTERACTIVE_TERMINAL_REQUIRED')
+            print('Rakuten UI Portal maintenance only. The original proof will NOT be renewed.')
+            print('This permits collection only until 7 days after the original proof expires.')
+            answer = input('Type MAINTENANCE to approve this one-time exception: ')
+            if not hmac.compare_digest(answer, 'MAINTENANCE'):
+                raise PipelineError('MAINTENANCE_NOT_CONFIRMED')
+            result = authorize_maintenance_continuity(
+                args.authorize_maintenance, credentials, datetime.now(timezone.utc))
+            print(json.dumps({'affiliateMaintenance': 'authorized',
+                              'expiresAt': result['expiresAt']}))
         elif args.check_affiliate_proof:
             result = affiliate_proof(args.check_affiliate_proof, credentials, datetime.now(timezone.utc))
             if not result['verified']:
                 raise PipelineError('AFFILIATE_CONFIRMATION_REQUIRED')
-            print(json.dumps({'affiliateProof': 'valid', 'expiresAt': result['expiresAt']}))
+            print(json.dumps({'affiliateProof': ('maintenance_continuity'
+                                               if result.get('mode') == 'maintenance_continuity'
+                                               else 'valid'),
+                              'expiresAt': result['expiresAt']}))
         else:
             print(json.dumps({'windowsCredentialsReadable': {name: True for name in NAMES}}))
         return 0
