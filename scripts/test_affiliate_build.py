@@ -66,8 +66,7 @@ class BuildAnalyticsTests(unittest.TestCase):
             self.assertIn('href="sim-optimizer.html"', index)
             self.assertIn('id="sim-tool"', sim)
             self.assertIn('id="sim-best"', sim)
-            self.assertNotIn('href="category-mobile-router.html"', sim) if not any(
-                c["id"] == "mobile-router" for c in categories) else None
+            self.assertIn('href="category-mobile-router.html"', sim)
             self.assertIn('<link rel="canonical" href="https://example.invalid/sim-optimizer.html">', sim)
             router = (docs / "category-mobile-router.html").read_text()
             wireless = (docs / "category-wireless-charger.html").read_text()
