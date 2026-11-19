@@ -143,6 +143,31 @@ class BuildAnalyticsTests(unittest.TestCase):
             (cfg / "analytics.json").write_text('{"ga4_measurement_id": "G-ABC12345"}')
             build_site.main()
             self.assertIn("googletagmanager.com/gtag/js?id=G-ABC12345", (docs / "index.html").read_text())
+            with (patch.object(validate, "CONFIG", cfg),
+                  patch.object(validate, "DATA", data),
+                  patch.object(validate, "DOCS", docs)):
+                validate.main()
+                # A missing tag in only one category page must prevent the
+                # next daily Pages artifact, rather than silently disabling GA4.
+                tagged = docs / "category-usb-charger.html"
+                original_tagged = tagged.read_text(encoding="utf-8")
+                self.assertIn("gtag/js?id=G-ABC12345", original_tagged)
+                tagged.write_text(original_tagged.replace(
+                    "gtag/js?id=G-ABC12345", "gtag/js?id=G-REDACTED", 1),
+                    encoding="utf-8")
+                with self.assertRaisesRegex(SystemExit, "GA4_TAG_MISSING_OR_DUPLICATE"):
+                    validate.main()
+                tagged.write_text(original_tagged, encoding="utf-8")
+                # The privacy disclosure is also a prerequisite for GA4 publishing.
+                privacy = docs / "privacy.html"
+                original_privacy = privacy.read_text(encoding="utf-8")
+                privacy.write_text(original_privacy.replace(
+                    "当サイトはGoogle Analytics 4（GA4）を利用", "別のサイト", 1),
+                    encoding="utf-8")
+                with self.assertRaisesRegex(SystemExit, "GA4_PRIVACY_DISCLOSURE_MISSING"):
+                    validate.main()
+                privacy.write_text(original_privacy, encoding="utf-8")
+                validate.main()
             (cfg / "analytics.json").write_text('{"ga4_measurement_id": "not-a-real-id"}')
             with self.assertRaisesRegex(ValueError, "GA4_MEASUREMENT_ID_INVALID"):
                 build_site.main()
