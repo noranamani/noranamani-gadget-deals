@@ -9,6 +9,7 @@ from pathlib import Path
 
 from affiliate_quality import (displayable, listing_period, merchant_promotion_claim,
                                recommendable, variant_price_uncertain)
+from sim_optimizer import SIM_STYLE, sim_page
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
@@ -179,7 +180,7 @@ def product_card(item: dict, editorial_reason: str = "", sort_order: int = 0,
 
 def layout(site: dict, title: str, body: str, description: str = "",
            active_category_id: str = "", active_page: str = "",
-           canonical_file: str = "") -> str:
+           canonical_file: str = "", page_css: str = "") -> str:
     site_name = esc(site.get("site_name", "noranamani GADGET DEALS"))
     desc = esc(description or site.get("tagline", "ガジェットの価格比較と特価候補"))
     canonical = ""
@@ -223,6 +224,7 @@ def layout(site: dict, title: str, body: str, description: str = "",
     comparisons_class = ' class="active"' if active_page == "comparisons" else ""
     drops_class = ' class="active"' if active_page == "price-drops" else ""
     deals_class = ' class="active"' if active_page == "deals" else ""
+    sim_class = ' class="active"' if active_page == "sim-optimizer" else ""
     sidebar = f'''<aside class="side-nav" aria-label="カテゴリナビゲーション">
       <div class="side-nav-title">カテゴリ</div>
       <a{home_class} href="index.html">ホーム</a>
@@ -230,6 +232,7 @@ def layout(site: dict, title: str, body: str, description: str = "",
       <a{comparisons_class} href="comparisons.html">条件別比較</a>
       <a{drops_class} href="price-drops.html">値下がりランキング</a>
       <a{deals_class} href="deals.html">今日の特価候補</a>
+      <a{sim_class} href="sim-optimizer.html">通信費診断</a>
     </aside>'''
     return f'''<!doctype html>
 <html lang="ja"><head>
@@ -239,9 +242,10 @@ def layout(site: dict, title: str, body: str, description: str = "",
 {canonical}
 <meta name="google-site-verification" content="SOlcKHA0_jr9rUKvudZcu9H27wc2si9Kq6B4anfCE6U" />
 <link rel="stylesheet" href="assets/style.css">
+{f"<style>{page_css}</style>" if page_css else ""}
 {analytics_tag}
 </head><body>
-<header><div class="wrap header-inner"><a class="brand" href="index.html">{site_name}</a><nav><a href="comparisons.html">条件別比較</a><a href="price-drops.html">値下がりランキング</a><a href="deals.html">今日の特価候補</a><a href="methodology.html">比較方法</a><a href="{esc(site.get('note_url'))}" target="_blank" rel="noopener">実体験note</a></nav></div></header>
+<header><div class="wrap header-inner"><a class="brand" href="index.html">{site_name}</a><nav><a href="comparisons.html">条件別比較</a><a href="price-drops.html">値下がりランキング</a><a href="deals.html">今日の特価候補</a><a href="methodology.html">比較方法</a><a href="sim-optimizer.html">通信費診断</a><a href="{esc(site.get('note_url'))}" target="_blank" rel="noopener">実体験note</a></nav></div></header>
 <div class="site-shell">{sidebar}<main class="main-content">{body}</main></div>
 <footer><div class="wrap"><p>このサイトには楽天アフィリエイトのリンクが含まれます。価格・在庫等は取得時点の情報です。購入前に販売ページをご確認ください。</p><p><a href="privacy.html">運営・プライバシー</a> ・ Supported by Rakuten Developers</p></div></footer>
 <script>
@@ -355,7 +359,15 @@ def main() -> None:
             featured.append(product_card(all_by_code[code], reason, placement="home-featured"))
 
     hero = f'''<section class="hero"><p class="eyebrow">毎日自動更新</p><h1>{esc(editorial.get('dailyHeadline') or site.get('tagline'))}</h1><p>{esc(editorial.get('dailySummary'))}</p><div class="stats"><span>取得商品 {int(products.get('stats',{}).get('products',0))}</span><span>追跡商品 {int(products.get('stats',{}).get('tracked',0))}</span><span>特価候補 {len(safe_deals)}</span></div></section>'''
-    sections = [hero]
+    sections = [hero, (
+        '<section class="sim-tools-home"><div class="category-nav-card">'
+        '<p class="eyebrow">FREE TOOL / 通信費見直し</p>'
+        '<h2><a href="sim-optimizer.html">家族の通信費・格安SIM見直し診断</a></h2>'
+        '<p>現在の通信費と乗り換え候補を入力し、月額・初年度総額を比較。'
+        '通信会社の未確認料金は表示せず、入力内容は端末内だけで計算します。</p>'
+        '<a class="cta" href="sim-optimizer.html">無料で料金を比較する</a>'
+        '</div></section>'
+    )]
     if price_drop_items:
         top_drop_cards = ''.join(product_card(item, placement='home-price-drop') for item in price_drop_items[:3])
         sections.append(f'''<section class="price-drop-home"><div class="section-head"><div><p class="eyebrow">価格履歴ベース</p><h2>今日の値下がりTOP</h2></div><a href="price-drops.html">値下がりランキングを見る</a></div><div class="grid">{top_drop_cards}</div></section>''')
@@ -557,6 +569,11 @@ def main() -> None:
 
     privacy_body = '''<section class="hero compact"><h1>運営・プライバシー</h1></section><section class="prose"><h2>運営</h2><p>noranamani が、ガジェット選びの比較材料を提供する目的で運営しています。</p><h2>広告について</h2><p>当サイトは楽天アフィリエイトを利用しています。リンク経由の購入により運営者が紹介料を受け取る場合があります。</p><h2>データについて</h2><p>価格、レビュー、送料等は更新時点の楽天市場APIデータです。店舗の商品名にあるセール文言やクーポン条件は未検証です。正確な最新情報は販売ページをご確認ください。</p><h2>アクセス計測について</h2><p>当サイトはGoogle Analytics 4（GA4）を利用して、ページ閲覧数と楽天アフィリエイトリンクへのクリックを計測しています。GA4により、Cookieや端末・アクセス状況に関する情報がGoogleに送信されることがあります。サイト独自のクリックイベントでは商品コード・カテゴリ・掲載位置を送信しますが、楽天のアフィリエイトURL全文や購入内容を送信しません。GA4だけでは楽天での購入完了や成果報酬を把握できません。</p><p>詳細は<a href="https://policies.google.com/privacy?hl=ja" rel="noopener" target="_blank">Googleのプライバシーポリシー</a>をご確認ください。</p></section>'''
     (DOCS / "privacy.html").write_text(layout(site, "運営・プライバシー", privacy_body, canonical_file="privacy.html"), encoding="utf-8")
+    (DOCS / "sim-optimizer.html").write_text(
+        layout(site, "家族の通信費・格安SIM見直し診断",
+               sim_page(), "料金・通信量を入力して、現在の回線契約と候補A・Bの初年度費用を比較する無料ツール。入力内容は端末内だけで処理します。",
+               active_page="sim-optimizer", canonical_file="sim-optimizer.html", page_css=SIM_STYLE),
+        encoding="utf-8")
 
     (DOCS / "feed.json").write_text(json.dumps({"updatedAt": products.get("updatedAt"), "deals": deals[:20], "priceDrops": price_drop_items[:20]}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     site_url = str(site.get("site_url") or "").rstrip("/")
@@ -566,7 +583,7 @@ def main() -> None:
     (DOCS / "robots.txt").write_text(robots, encoding="utf-8")
 
     if site_url:
-        pages = ["index.html", "categories.html", "comparisons.html", "price-drops.html", "deals.html", "methodology.html", "privacy.html"]
+        pages = ["index.html", "categories.html", "comparisons.html", "price-drops.html", "deals.html", "methodology.html", "privacy.html", "sim-optimizer.html"]
         pages += [category_filename(str(cat.get("id") or "")) for cat in products.get("categories", [])]
         pages += [comparison_filename(str(row["spec"].get("id") or "")) for row in comparison_pages]
         urls = "".join(f"<url><loc>{esc(site_url + '/' + p)}</loc></url>" for p in pages)
