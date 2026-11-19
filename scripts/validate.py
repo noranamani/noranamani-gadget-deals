@@ -84,7 +84,7 @@ def main():
         ):
             comparison_pages.append(DOCS / f"comparison-{spec['id']}.html")
 
-    rendered_pages = [DOCS / "index.html", DOCS / "categories.html",
+    rendered_pages = [DOCS / "index.html", DOCS / "sim-optimizer.html", DOCS / "categories.html",
                       DOCS / "comparisons.html", DOCS / "price-drops.html",
                       DOCS / "deals.html", DOCS / "methodology.html",
                       DOCS / "privacy.html", *category_pages, *comparison_pages]
@@ -114,6 +114,15 @@ def main():
             expected = site_url + "/" + path.name
             if f'<link rel="canonical" href="{expected}">' not in text:
                 fail("CANONICAL_URL_MISMATCH")
+
+    # The calculator is a standalone tool, not an affiliate product listing.
+    # Keep its privacy and calculation controls in every production bundle.
+    tool_html = (DOCS / "sim-optimizer.html").read_text(encoding="utf-8")
+    for marker in ('id="sim-tool"', 'id="sim-count"', 'id="sim-best"',
+                   'id="sim-status"', 'id="sim-a-annual"', 'id="sim-b-annual"',
+                   '入力内容をサーバーへ送信・保存しません'):
+        if marker not in tool_html:
+            fail("SIM_OPTIMIZER_MARKUP_MISSING")
 
     if ga4_id:
         privacy_html = (DOCS / "privacy.html").read_text(encoding="utf-8")
