@@ -109,9 +109,9 @@ class BuildAnalyticsTests(unittest.TestCase):
             (cfg / "comparisons.json").write_text(json.dumps(compare_spec))
             build_site.main()
             self.assertFalse((docs / "comparison-usb-charger-65w.html").exists())
-            with patch.object(validate, "CONFIG", cfg), \\
-                 patch.object(validate, "DATA", data), \\
-                 patch.object(validate, "DOCS", docs):
+            with (patch.object(validate, "CONFIG", cfg),
+                  patch.object(validate, "DATA", data),
+                  patch.object(validate, "DOCS", docs)):
                 validate.main()
             compare_spec["pages"][0]["minComparableProducts"] = 1
             (cfg / "comparisons.json").write_text(json.dumps(compare_spec))
@@ -121,9 +121,9 @@ class BuildAnalyticsTests(unittest.TestCase):
                 '<link rel="canonical" href="https://example.invalid/comparison-usb-charger-65w.html">',
                 detail
             )
-            with patch.object(validate, "CONFIG", cfg), \\
-                 patch.object(validate, "DATA", data), \\
-                 patch.object(validate, "DOCS", docs):
+            with (patch.object(validate, "CONFIG", cfg),
+                  patch.object(validate, "DATA", data),
+                  patch.object(validate, "DOCS", docs)):
                 validate.main()
             (cfg / "analytics.json").write_text('{"ga4_measurement_id": "G-ABC12345"}')
             build_site.main()
