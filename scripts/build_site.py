@@ -177,9 +177,23 @@ def product_card(item: dict, editorial_reason: str = "", sort_order: int = 0,
     </article>'''
 
 
-def layout(site: dict, title: str, body: str, description: str = "", active_category_id: str = "", active_page: str = "") -> str:
+def layout(site: dict, title: str, body: str, description: str = "",
+           active_category_id: str = "", active_page: str = "",
+           canonical_file: str = "") -> str:
     site_name = esc(site.get("site_name", "noranamani GADGET DEALS"))
     desc = esc(description or site.get("tagline", "ガジェットの価格比較と特価候補"))
+    canonical = ""
+    if canonical_file and site.get("site_url"):
+        if not re.fullmatch(r"[a-z0-9-]+\.html", canonical_file):
+            raise ValueError("CANONICAL_FILENAME_INVALID")
+        canonical_url = str(site["site_url"]).rstrip("/") + "/" + canonical_file
+        canonical = (
+            f'<link rel="canonical" href="{esc(canonical_url)}">'
+            f'<meta property="og:url" content="{esc(canonical_url)}">'
+            f'<meta property="og:type" content="website">'
+            f'<meta property="og:title" content="{esc(title)} | {site_name}">'
+            f'<meta property="og:description" content="{desc}">'
+        )
     category_queries = load(CONFIG / "queries.json", [])
     analytics_cfg = load(CONFIG / "analytics.json", {})
     measurement_id = str(analytics_cfg.get("ga4_measurement_id") or "").strip()
@@ -222,6 +236,7 @@ def layout(site: dict, title: str, body: str, description: str = "", active_cate
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{esc(title)} | {site_name}</title>
 <meta name="description" content="{desc}">
+{canonical}
 <meta name="google-site-verification" content="SOlcKHA0_jr9rUKvudZcu9H27wc2si9Kq6B4anfCE6U" />
 <link rel="stylesheet" href="assets/style.css">
 {analytics_tag}
@@ -382,7 +397,7 @@ def main() -> None:
 
     updated = format_updated_at(products.get("updatedAt"))
     sections.append(f'<p class="updated">最終データ更新: {esc(updated)}</p>')
-    (DOCS / "index.html").write_text(layout(site, "ホーム", ''.join(sections), active_page="home"), encoding="utf-8")
+    (DOCS / "index.html").write_text(layout(site, "ホーム", ''.join(sections), active_page="home", canonical_file="index.html"), encoding="utf-8")
 
     active_comparison_files = set()
     comparison_index_cards = []
@@ -417,7 +432,7 @@ def main() -> None:
         breadcrumb = f'''<nav class="breadcrumb" aria-label="パンくず"><a href="index.html">ホーム</a><span>›</span><a href="comparisons.html">条件別比較</a><span>›</span><span>{esc(spec.get('name'))}</span></nav>'''
         body = f'''{breadcrumb}<section class="hero compact category-hero"><p class="eyebrow">条件別比較</p><h1>{esc(spec.get('name'))}を比較</h1><p>{esc(spec.get('summary'))}</p><div class="stats"><span>価格比較 {len(comparable_items)}件</span>{f'<span>仕様選択あり {len(variant_items)}件</span>' if variant_items else ''}<span>親カテゴリ <a href="{esc(category_filename(str(parent.get('id') or '')))}">{esc(parent.get('name'))}</a></span><span>最終更新 {esc(updated)}</span></div></section><section class="guide-box"><h2>選ぶときのチェックポイント</h2>{guide_html}</section>{compare_table}{variant_alert}<section><div class="section-head"><h2>条件に一致した商品</h2><span>{len(items)}件</span></div>{sort_toolbar}<div class="grid" id="category-products">{cards}</div></section><p class="updated">最終データ更新: {esc(updated)}</p>'''
         (DOCS / comparison_url).write_text(
-            layout(site, f"{spec.get('name')}比較", body, str(spec.get("summary") or ""), active_page="comparisons"),
+            layout(site, f"{spec.get('name')}比較", body, str(spec.get("summary") or ""), active_page="comparisons", canonical_file=comparison_url),
             encoding="utf-8",
         )
 
@@ -431,7 +446,7 @@ def main() -> None:
     else:
         comparisons_body += '<div class="empty">比較ページの公開条件を満たす商品を確認中です。</div>'
     (DOCS / "comparisons.html").write_text(
-        layout(site, "条件別比較", comparisons_body, "用途や容量、規格などで絞ったガジェット比較ページの一覧です。", active_page="comparisons"),
+        layout(site, "条件別比較", comparisons_body, "用途や容量、規格などで絞ったガジェット比較ページの一覧です。", active_page="comparisons", canonical_file="comparisons.html"),
         encoding="utf-8",
     )
 
@@ -453,7 +468,7 @@ def main() -> None:
 
     categories_body = f'''<section class="hero compact"><p class="eyebrow">カテゴリ目次</p><h1>カテゴリ一覧</h1><p>比較したいジャンルへすぐ移動できます。</p><div class="category-chip-row">{''.join(category_links)}</div></section><div class="category-nav-grid">{''.join(category_cards)}</div>'''
     (DOCS / "categories.html").write_text(
-        layout(site, "カテゴリ一覧", categories_body, "ガジェット比較カテゴリの一覧。充電器、ストレージ、車載ガジェット、モバイル通信機器などを比較できます。"),
+        layout(site, "カテゴリ一覧", categories_body, "ガジェット比較カテゴリの一覧。充電器、ストレージ、車載ガジェット、モバイル通信機器などを比較できます。", canonical_file="categories.html"),
         encoding="utf-8",
     )
 
@@ -490,7 +505,7 @@ def main() -> None:
         category_body = f'''{breadcrumb}<section class="hero compact category-hero"><p class="eyebrow">毎日自動更新</p><h1>{esc(cat.get('name'))}の価格比較</h1><p>{esc(summary_text)}</p><div class="stats"><span>掲載商品 {len(ordered)}</span><span>検索条件 {esc(cat.get('keyword'))}</span><span>最終更新 {esc(updated)}</span></div></section><section class="guide-box"><h2>選ぶときのチェックポイント</h2>{watch_html if watch_html else '<p>価格だけでなく、レビュー、送料、ポイント、価格履歴も合わせて比較してください。</p>'}</section>{compare_table}<section><div class="section-head"><h2>商品一覧</h2><span>{len(ordered)}件</span></div>{sort_toolbar}<div class="grid" id="category-products">{''.join(cards)}</div></section><p class="updated">最終データ更新: {esc(updated)}</p>'''
         description = f"{cat.get('name')}の価格、レビュー、送料、ポイント、価格履歴を比較。毎日更新。"
         (DOCS / category_filename(category_id)).write_text(
-            layout(site, f"{cat.get('name')}の価格比較", category_body, description, category_id),
+            layout(site, f"{cat.get('name')}の価格比較", category_body, description, category_id, canonical_file=category_filename(category_id)),
             encoding="utf-8",
         )
 
@@ -520,7 +535,7 @@ def main() -> None:
 
     drops_body = f'''<nav class="breadcrumb" aria-label="パンくず"><a href="index.html">ホーム</a><span>›</span><span>値下がりランキング</span></nav><section class="hero compact category-hero"><p class="eyebrow">毎日自動更新</p><h1>値下がりランキング</h1><p>このサイトが保存した価格履歴の中央値と現在価格を比較し、値下がり率の大きい順に表示します。市場全体の最安値を示すものではありません。</p><div class="stats"><span>ランキング対象 {len(price_drop_items)}</span><span>価格ウォッチ中 {len(watching_items)}</span><span>判定開始 {min_samples}回から</span><span>最終更新 {esc(updated)}</span></div></section>{ranking_html}{watching_html}'''
     (DOCS / "price-drops.html").write_text(
-        layout(site, "値下がりランキング", drops_body, "保存した価格履歴から値下がり率の大きい商品を毎日ランキング。特価候補と価格ウォッチ中の商品も確認できます。", active_page="price-drops"),
+        layout(site, "値下がりランキング", drops_body, "保存した価格履歴から値下がり率の大きい商品を毎日ランキング。特価候補と価格ウォッチ中の商品も確認できます。", active_page="price-drops", canonical_file="price-drops.html"),
         encoding="utf-8",
     )
 
@@ -530,7 +545,7 @@ def main() -> None:
         deal_body += '<div class="grid">' + ''.join(product_card(x, featured_reasons.get(x.get("code"), ""), placement="deals-page") for x in deals) + '</div>'
     else:
         deal_body += '<div class="empty">価格履歴が十分にたまるまで、特価候補は表示しません。</div>'
-    (DOCS / "deals.html").write_text(layout(site, "今日の特価候補", deal_body, active_page="deals"), encoding="utf-8")
+    (DOCS / "deals.html").write_text(layout(site, "今日の特価候補", deal_body, active_page="deals", canonical_file="deals.html"), encoding="utf-8")
 
     method_body = '''<section class="hero compact"><h1>比較方法</h1><p>価格だけに偏らない比較スコアと、保存した価格履歴を組み合わせています。</p></section>
 <section class="prose"><h2>比較スコア</h2><p>レビュー平均、レビュー件数、同一検索カテゴリ内の相対価格、送料無料、ポイント倍率、価格履歴上の値下がりを組み合わせた参考値です。製品性能そのものを表す点数ではありません。</p>
@@ -538,10 +553,10 @@ def main() -> None:
 <h2>仕様選択がある商品</h2><p>条件別比較では、商品名に複数の容量や出力が含まれる商品は、表示価格が対象仕様の価格とは限らないため「仕様選択あり」と表示し、比較スコア上位・価格順・値下がり順の価格比較対象から外します。</p>
 <h2>特価候補</h2><p>最低5回の価格記録がある商品について、直近価格履歴の中央値から原則10%以上安い場合などを候補にします。仕様や掲載期間が不確かな商品は特価ランキングから除きます。市場全体の最安値を保証するものではありません。</p>
 <h2>比較コメント</h2><p>楽天APIから取得した事実と、このサイトの価格履歴を根拠に短い比較コメントを掲載します。APIにない仕様や実測性能は掲載しません。</p></section>'''
-    (DOCS / "methodology.html").write_text(layout(site, "比較方法", method_body), encoding="utf-8")
+    (DOCS / "methodology.html").write_text(layout(site, "比較方法", method_body, canonical_file="methodology.html"), encoding="utf-8")
 
     privacy_body = '''<section class="hero compact"><h1>運営・プライバシー</h1></section><section class="prose"><h2>運営</h2><p>noranamani が、ガジェット選びの比較材料を提供する目的で運営しています。</p><h2>広告について</h2><p>当サイトは楽天アフィリエイトを利用しています。リンク経由の購入により運営者が紹介料を受け取る場合があります。</p><h2>データについて</h2><p>価格、レビュー、送料等は更新時点の楽天市場APIデータです。店舗の商品名にあるセール文言やクーポン条件は未検証です。正確な最新情報は販売ページをご確認ください。</p><h2>アクセス計測について</h2><p>GA4が設定されている場合、ページ閲覧と楽天アフィリエイトリンクのクリックを集計します。クリック時に商品コード・カテゴリ・掲載位置を送信しますが、サイト独自のクリックイベントにはURL全文を含めません。</p></section>'''
-    (DOCS / "privacy.html").write_text(layout(site, "運営・プライバシー", privacy_body), encoding="utf-8")
+    (DOCS / "privacy.html").write_text(layout(site, "運営・プライバシー", privacy_body, canonical_file="privacy.html"), encoding="utf-8")
 
     (DOCS / "feed.json").write_text(json.dumps({"updatedAt": products.get("updatedAt"), "deals": deals[:20], "priceDrops": price_drop_items[:20]}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     site_url = str(site.get("site_url") or "").rstrip("/")
