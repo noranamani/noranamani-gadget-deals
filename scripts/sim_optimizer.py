@@ -222,7 +222,7 @@ def _line(index):
             f'<div class="sim-grid">{fields}</div></fieldset>')
 
 
-def sim_page():
+def sim_page(show_router=True):
     extra = [
         ("sim-extra-current", "現在の共通月額（円）"),
         ("sim-extra-a", "候補Aの共通月額（円）"),
@@ -276,10 +276,10 @@ def sim_page():
         '株主優待等の適用資格・有効期限は公式サイトで確認してください。'
         '回線の乗換時にキャンペーンを利用する場合、期間終了後の料金も検討してください。</p>'
         '</aside></section>'
-        '<section class="sim-related guide-box"><h2>通信環境に合う機器もチェック</h2>'
-        '<p>乗り換え先でSIMフリールーターを使う場合は、端末側の周波数・SIM形式・対応バンドを事前に確認してください。</p>'
-        '<p><a class="cta" href="category-mobile-router.html">モバイルルーターの比較を見る</a></p>'
-        '<p class="sim-muted">上記の製品比較ページには楽天アフィリエイトリンクが含まれます。</p>'
-        '</section>'
-        '<script>' + SIM_JS + '</script>'
+        + ('<section class="sim-related guide-box"><h2>通信環境に合う機器もチェック</h2>'
+           '<p>SIMフリールーターの周波数・SIM形式・対応バンドは、使用する通信会社との適合を確認してください。</p>'
+           '<p><a class="cta" href="category-mobile-router.html">モバイルルーターの比較を見る</a></p>'
+           '<p class="sim-muted">製品比較ページには楽天アフィリエイトリンクが含まれます。</p>'
+           '</section>' if show_router else '')
+        + '<script>' + SIM_JS + '</script>'
     )
