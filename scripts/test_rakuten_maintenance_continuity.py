@@ -64,9 +64,10 @@ class LocalContinuityTests(unittest.TestCase):
         with self.assertRaisesRegex(PipelineError, 'MAINTENANCE_ALREADY_AUTHORIZED'):
             self.authorize(EXPIRES + timedelta(days=2))
         self.assertEqual(marker.read_bytes(), saved)
+        marker.unlink()
         with self.assertRaisesRegex(PipelineError, 'MAINTENANCE_WINDOW_CLOSED'):
-            authorize_maintenance_continuity(self.proof_path.with_name('fresh-proof.json'),
-                                             CREDS, END)  # no proof => required
+            authorize_maintenance_continuity(self.proof_path, CREDS, END)
+        self.assertFalse(marker.exists())
 
     def test_rotation_tampering_marker_and_missing_marker_fail_closed(self):
         self.authorize()
