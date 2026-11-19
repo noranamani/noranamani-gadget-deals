@@ -61,6 +61,7 @@ class BuildAnalyticsTests(unittest.TestCase):
             usb = (docs / "category-usb-charger.html").read_text()
             index = (docs / "index.html").read_text()
             router = (docs / "category-mobile-router.html").read_text()
+            wireless = (docs / "category-wireless-charger.html").read_text()
             deal = (docs / "deals.html").read_text()
             feed = json.loads((docs / "feed.json").read_text())
             self.assertIn("仕様・表示価格要確認", usb)
