@@ -278,7 +278,7 @@ def main() -> None:
     display_clock = datetime.now(timezone.utc)
     def quality_ok(item):
         return recommendable(item, display_clock)
-    safe_deals = [item for item in products.get("deals", []) if quality_ok(item)]
+    safe_deals = [item for item in products.get("deals", []) if item.get("isDeal") and quality_ok(item)]
     DOCS.mkdir(parents=True, exist_ok=True)
     ASSETS.mkdir(parents=True, exist_ok=True)
 
