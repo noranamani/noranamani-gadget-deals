@@ -125,6 +125,21 @@ class BuildAnalyticsTests(unittest.TestCase):
                   patch.object(validate, "DATA", data),
                   patch.object(validate, "DOCS", docs)):
                 validate.main()
+            # Prove the actual publication validator (not just the helper)
+            # stops before Pages when an affiliate SKU is swapped in HTML.
+            rendered_page = docs / "category-usb-charger.html"
+            pristine_html = rendered_page.read_text()
+            self.assertIn('data-affiliate-code="c:valid"', pristine_html)
+            rendered_page.write_text(pristine_html.replace(
+                'data-affiliate-code="c:valid"',
+                'data-affiliate-code="c:other"', 1
+            ))
+            with (patch.object(validate, "CONFIG", cfg),
+                  patch.object(validate, "DATA", data),
+                  patch.object(validate, "DOCS", docs)):
+                with self.assertRaisesRegex(SystemExit, "AFFILIATE_LINK_AUDIT_FAILED"):
+                    validate.main()
+            rendered_page.write_text(pristine_html)
             (cfg / "analytics.json").write_text('{"ga4_measurement_id": "G-ABC12345"}')
             build_site.main()
             self.assertIn("googletagmanager.com/gtag/js?id=G-ABC12345", (docs / "index.html").read_text())
