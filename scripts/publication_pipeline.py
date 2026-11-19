@@ -54,6 +54,7 @@ def validate_collection(root: Path, now: datetime, *, max_age_hours: int = 3) ->
         if not (original_expiry - timedelta(days=30) <= authorized_at
                 < original_expiry + timedelta(days=7)
                 and accepted_until == original_expiry + timedelta(days=7)
+                and accepted_until <= datetime(2026, 11, 27, 5, 37, 21, 374999, tzinfo=timezone.utc)
                 and original_expiry <= collected < accepted_until
                 and authorized_at <= collected):
             raise PipelineError('AFFILIATE_MAINTENANCE_WINDOW_INVALID')
