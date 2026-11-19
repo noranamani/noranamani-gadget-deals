@@ -55,3 +55,15 @@ $script = Join-Path $pipelineHome ("code\" + $source.sourceCommit + "\scripts\wi
 Only paste the ID at the hidden prompt. Never copy the ID to chat, Git,
 logs, environment files or screenshots. A fresh proof is written only on
 a confirmed match. This does not invoke the API or trigger publication.
+
+To inspect the expiry **without renewing it**, run the same script after
+reloading the updated code on the production PC:
+
+```powershell
+& 'C:\Python312\python.exe' -X utf8 $script --check-affiliate-proof (Join-Path $pipelineHome 'state\affiliate-proof.json')
+```
+
+A valid proof prints the new `expiresAt` timestamp in UTC and the word
+`valid`. Invalid, changed-credential or expired proof reports only a
+fixed non-secret error and exits nonzero. Do not run scheduled collection
+outside its designated time window just to check this record.
