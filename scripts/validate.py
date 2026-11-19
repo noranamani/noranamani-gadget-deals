@@ -7,6 +7,7 @@ import re
 from affiliate_quality import displayable, recommendable
 from affiliate_site_audit import audit_affiliate_links
 from build_site import comparison_price_is_uncertain, item_matches_comparison
+from pipeline_common import PipelineError
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -105,9 +106,8 @@ def main():
     # every outbound link retains sponsored attributes and product mapping.
     try:
         audit = audit_affiliate_links(products, rendered_pages)
-    except Exception as exc:
-        if isinstance(exc, SystemExit):
-            raise
+    except PipelineError:
+        # Do not leak full Rakuten tracking URLs or source names in CI logs.
         fail("AFFILIATE_LINK_AUDIT_FAILED")
 
     secret_patterns = [r"RAKUTEN_ACCESS_KEY\s*=", r"GITHUB_WRITE_TOKEN\s*=", r"ghp_[A-Za-z0-9]+", r"github_pat_[A-Za-z0-9_]+"]
