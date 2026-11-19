@@ -62,7 +62,36 @@ def listing_period(item: dict, now: datetime) -> str:
 
 
 def displayable(item: dict) -> bool:
-    return is_relevant(str(item.get("categoryId") or ""), str(item.get("name") or ""))
+    """Conservative extra display-only category exclusions for ambiguous API titles.
+
+    Never remove stored price observations or mutate the Windows collector:
+    exclude a listing only when the title clearly describes a different product.
+    """
+    category = str(item.get("categoryId") or "")
+    title = str(item.get("name") or "")
+    if not is_relevant(category, title):
+        return False
+    if category == "wireless-charger":
+        # Some merchants advertise an AC wall brick as "suitable for our Qi2
+        # wireless charger".  Qi2 in the *reference* does not make this a
+        # wireless charging pad. Preserve bundles that include a charger.
+        header, sep, reference = title.partition("《")
+        if (sep and re.search(r"ac(?:充電器|アダプタ[ー]?|アダプター)|コンセント充電器",
+                              header, re.I)
+                and not re.search(r"ワイヤレス充電|無線充電|qi2?|magsafe|マグセーフ",
+                                  header, re.I)
+                and re.search(r"当社.{0,90}(?:qi2?|ワイヤレス充電|magsafe)",
+                              reference, re.I)):
+            return False
+    if category == "mobile-router":
+        # A replacement shell or protective film is not a network device,
+        # even if the title repeats "SIMフリールーター" as an SEO keyword.
+        # Keep genuine router bundles explicitly selling the device itself.
+        if (re.search(r"専用.{0,55}(?:ケース|カバー|保護フィルム)", title, re.I)
+                and not re.search(r"(?:ルーター|wi-?fi|端末)本体.{0,30}(?:付|付き|同梱|セット)",
+                                  title, re.I)):
+            return False
+    return True
 
 
 def recommendable(item: dict, now: datetime) -> bool:
