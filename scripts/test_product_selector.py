@@ -24,7 +24,7 @@ class ProductSelectorTests(unittest.TestCase):
         items = [item("usb-charger", "c:" + str(n), "65W USB-C充電器", price=1000+n,
                       score=float(n)) for n in range(12)]
         items.extend([
-            item("usb-charger", "c:variant", "20W/65W仕様選択 USB-C充電器", price=100),
+            item("usb-charger", "c:variant", "20W / 65W USB-C充電器", price=100),
             item("usb-charger", "c:unsafe", "65W USB-C充電器", price=250,
                  saleStart="2099-01-01 00:00", score=100)
         ])
