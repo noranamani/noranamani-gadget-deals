@@ -10,6 +10,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 import build_site
+import validate
+from affiliate_site_audit import audit_affiliate_links
 
 JST = timezone(timedelta(hours=9))
 URL = "https://hb.afl.rakuten.co.jp/hgc/test-public/?pc=https%3A%2F%2Fitem.rakuten.co.jp%2Ftest%2Fexample%2F"
@@ -80,10 +82,64 @@ class BuildAnalyticsTests(unittest.TestCase):
             self.assertIn('item_code: link.dataset.affiliateCode', index)
             self.assertNotIn("googletagmanager.com/gtag", index)
             self.assertIn("c:valid", deal)
+            self.assertIn('<link rel="canonical" href="https://example.invalid/index.html">', index)
+            self.assertIn('<link rel="canonical" href="https://example.invalid/category-usb-charger.html">', usb)
+            self.assertIn('<meta property="og:title"', usb)
+            self.assertEqual(
+                audit_affiliate_links(
+                    json.loads((data / "products.json").read_text()),
+                    [docs / "index.html", docs / "category-usb-charger.html"]
+                )["pagesChecked"], 2
+            )
             self.assertNotIn("c:variants", deal)
             self.assertNotIn("c:pending", deal)
             self.assertNotIn("c:wrong", deal)
             self.assertEqual([x["code"] for x in feed["deals"]], ["c:valid"])
+            # The safe product gate leaves just one comparable SKU; the
+            # validator must not demand a page which the builder withheld.
+            compare_spec = {
+                "rolloutStartDate": "2026-10-01",
+                "pages": [{
+                    "id": "usb-charger-65w", "name": "65W USB-C充電器",
+                    "parentCategory": "usb-charger",
+                    "includeAnyGroups": [["65w"]],
+                    "minProducts": 3, "minComparableProducts": 2
+                }]
+            }
+            (cfg / "comparisons.json").write_text(json.dumps(compare_spec))
+            build_site.main()
+            self.assertFalse((docs / "comparison-usb-charger-65w.html").exists())
+            with (patch.object(validate, "CONFIG", cfg),
+                  patch.object(validate, "DATA", data),
+                  patch.object(validate, "DOCS", docs)):
+                validate.main()
+            compare_spec["pages"][0]["minComparableProducts"] = 1
+            (cfg / "comparisons.json").write_text(json.dumps(compare_spec))
+            build_site.main()
+            detail = (docs / "comparison-usb-charger-65w.html").read_text()
+            self.assertIn(
+                '<link rel="canonical" href="https://example.invalid/comparison-usb-charger-65w.html">',
+                detail
+            )
+            with (patch.object(validate, "CONFIG", cfg),
+                  patch.object(validate, "DATA", data),
+                  patch.object(validate, "DOCS", docs)):
+                validate.main()
+            # Prove the actual publication validator (not just the helper)
+            # stops before Pages when an affiliate SKU is swapped in HTML.
+            rendered_page = docs / "category-usb-charger.html"
+            pristine_html = rendered_page.read_text()
+            self.assertIn('data-affiliate-code="c:valid"', pristine_html)
+            rendered_page.write_text(pristine_html.replace(
+                'data-affiliate-code="c:valid"',
+                'data-affiliate-code="c:other"', 1
+            ))
+            with (patch.object(validate, "CONFIG", cfg),
+                  patch.object(validate, "DATA", data),
+                  patch.object(validate, "DOCS", docs)):
+                with self.assertRaisesRegex(SystemExit, "AFFILIATE_LINK_AUDIT_FAILED"):
+                    validate.main()
+            rendered_page.write_text(pristine_html)
             (cfg / "analytics.json").write_text('{"ga4_measurement_id": "G-ABC12345"}')
             build_site.main()
             self.assertIn("googletagmanager.com/gtag/js?id=G-ABC12345", (docs / "index.html").read_text())
