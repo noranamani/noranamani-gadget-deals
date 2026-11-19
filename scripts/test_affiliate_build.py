@@ -63,6 +63,11 @@ class BuildAnalyticsTests(unittest.TestCase):
             usb = (docs / "category-usb-charger.html").read_text()
             index = (docs / "index.html").read_text()
             sim = (docs / "sim-optimizer.html").read_text()
+            selector = (docs / "product-selector.html").read_text()
+            self.assertIn('href="product-selector.html"', index)
+            self.assertIn('id="selector-category"', selector)
+            self.assertIn('id="selector-grid"', selector)
+            self.assertIn('<link rel="canonical" href="https://example.invalid/product-selector.html">', selector)
             self.assertIn('href="sim-optimizer.html"', index)
             self.assertIn('id="sim-tool"', sim)
             self.assertIn('id="sim-best"', sim)
@@ -150,6 +155,7 @@ class BuildAnalyticsTests(unittest.TestCase):
             build_site.main()
             self.assertIn("googletagmanager.com/gtag/js?id=G-ABC12345", (docs / "index.html").read_text())
             self.assertIn('gtag("config","G-ABC12345")', (docs / "sim-optimizer.html").read_text())
+            self.assertIn('gtag("config","G-ABC12345")', (docs / "product-selector.html").read_text())
             with (patch.object(validate, "CONFIG", cfg),
                   patch.object(validate, "DATA", data),
                   patch.object(validate, "DOCS", docs)):
