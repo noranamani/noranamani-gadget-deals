@@ -225,6 +225,7 @@ def layout(site: dict, title: str, body: str, description: str = "",
     drops_class = ' class="active"' if active_page == "price-drops" else ""
     deals_class = ' class="active"' if active_page == "deals" else ""
     sim_class = ' class="active"' if active_page == "sim-optimizer" else ""
+    css_tag = f"<style>{page_css}</style>" if page_css else ""
     sidebar = f'''<aside class="side-nav" aria-label="カテゴリナビゲーション">
       <div class="side-nav-title">カテゴリ</div>
       <a{home_class} href="index.html">ホーム</a>
@@ -242,7 +243,7 @@ def layout(site: dict, title: str, body: str, description: str = "",
 {canonical}
 <meta name="google-site-verification" content="SOlcKHA0_jr9rUKvudZcu9H27wc2si9Kq6B4anfCE6U" />
 <link rel="stylesheet" href="assets/style.css">
-{f"<style>{page_css}</style>" if page_css else ""}
+{css_tag}
 {analytics_tag}
 </head><body>
 <header><div class="wrap header-inner"><a class="brand" href="index.html">{site_name}</a><nav><a href="comparisons.html">条件別比較</a><a href="price-drops.html">値下がりランキング</a><a href="deals.html">今日の特価候補</a><a href="methodology.html">比較方法</a><a href="sim-optimizer.html">通信費診断</a><a href="{esc(site.get('note_url'))}" target="_blank" rel="noopener">実体験note</a></nav></div></header>
@@ -571,7 +572,7 @@ def main() -> None:
     (DOCS / "privacy.html").write_text(layout(site, "運営・プライバシー", privacy_body, canonical_file="privacy.html"), encoding="utf-8")
     (DOCS / "sim-optimizer.html").write_text(
         layout(site, "家族の通信費・格安SIM見直し診断",
-               sim_page(), "料金・通信量を入力して、現在の回線契約と候補A・Bの初年度費用を比較する無料ツール。入力内容は端末内だけで処理します。",
+               sim_page(show_router=bool(category_by_id.get("mobile-router"))), "料金・通信量を入力して、現在の回線契約と候補A・Bの初年度費用を比較する無料ツール。入力内容は端末内だけで処理します。",
                active_page="sim-optimizer", canonical_file="sim-optimizer.html", page_css=SIM_STYLE),
         encoding="utf-8")
 
