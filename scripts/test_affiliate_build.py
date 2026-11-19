@@ -37,10 +37,13 @@ class BuildAnalyticsTests(unittest.TestCase):
             pending = item("usb-charger", "c:pending", "65W USB-C充電器 特価候補", saleStart=future)
             bad = item("mobile-router", "c:wrong", "追加チャージ専用モバイルルーター")
             right = item("mobile-router", "c:right", "SIMフリーモバイルルーター", isDeal=False)
-            goods = [valid, option, pending, bad, right]
+            router_case = item("mobile-router", "c:case", "Macaroon SE 専用 モバイルルーター ケース", isDeal=False)
+            ac_brick = item("wireless-charger", "c:ac", "30W AC充電器《当社Qi2 ワイヤレス充電器に最適》", isDeal=False)
+            qi2_pad = item("wireless-charger", "c:pad", "Qi2 15W ワイヤレス充電器", isDeal=False)
+            goods = [valid, option, pending, bad, right, router_case, ac_brick, qi2_pad]
             categories = [{"id": cat, "name": cat, "keyword": cat,
                            "items": [x for x in goods if x["categoryId"] == cat]}
-                          for cat in ("usb-charger", "mobile-router")]
+                          for cat in ("usb-charger", "mobile-router", "wireless-charger")]
             (cfg / "site.json").write_text(json.dumps({"site_name": "Test", "site_url": "https://example.invalid"}))
             (cfg / "analytics.json").write_text('{"ga4_measurement_id": ""}')
             (cfg / "queries.json").write_text(json.dumps([{"id": x["id"], "name": x["name"]} for x in categories]))
@@ -58,15 +61,22 @@ class BuildAnalyticsTests(unittest.TestCase):
             usb = (docs / "category-usb-charger.html").read_text()
             index = (docs / "index.html").read_text()
             router = (docs / "category-mobile-router.html").read_text()
+            wireless = (docs / "category-wireless-charger.html").read_text()
             deal = (docs / "deals.html").read_text()
             feed = json.loads((docs / "feed.json").read_text())
             self.assertIn("仕様・表示価格要確認", usb)
             self.assertIn("掲載開始前", usb)
             self.assertIn('data-affiliate-code="c:valid"', usb)
             self.assertIn('data-affiliate-placement="category-card:button"', usb)
+            self.assertIn('data-affiliate-placement="category-card:title"', usb)
+            self.assertIn('aria-label="65W USB-C充電器：楽天市場の商品ページを新しいタブで開く"', usb)
+            self.assertIn('<h3><a class="product-title-link"', usb)
             self.assertIn('data-affiliate-placement="table"', usb)
             self.assertNotIn("c:wrong", router)
+            self.assertNotIn("c:case", router)
             self.assertIn("c:right", router)
+            self.assertNotIn("c:ac", wireless)
+            self.assertIn("c:pad", wireless)
             self.assertIn('item_code: link.dataset.affiliateCode', index)
             self.assertNotIn("googletagmanager.com/gtag", index)
             self.assertIn("c:valid", deal)

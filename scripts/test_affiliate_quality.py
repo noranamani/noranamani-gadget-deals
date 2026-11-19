@@ -30,6 +30,34 @@ class AffiliateQualityTests(unittest.TestCase):
         self.assertFalse(recommendable(target, NOW))
         self.assertTrue(displayable(row("mobile-router", "SIMフリーモバイルルーター"),))
 
+    def test_reference_to_another_wireless_product_does_not_make_ac_brick_qi2(self):
+        ac_only = row(
+            "wireless-charger",
+            "30W急速充電器 AC充電器 USB-Cx1＋USB-Ax1"
+            "《当社Qi2 15W ワイヤレス充電器に最適！》"
+        )
+        qi2_pad = row(
+            "wireless-charger",
+            "Qi2 マグネット ワイヤレス充電器 15W (ACアダプター別売)"
+        )
+        self.assertFalse(displayable(ac_only))
+        self.assertFalse(recommendable(ac_only, NOW))
+        self.assertTrue(displayable(qi2_pad))
+
+    def test_router_protective_case_not_treated_as_router_but_bundle_remains(self):
+        only_case = row(
+            "mobile-router",
+            "LOE Macaroon SE 専用 モバイルルーター ケース 保護フィルム付き"
+        )
+        legitimate = row(
+            "mobile-router",
+            "SIMフリー モバイルルーター 本体 ケース付き 付属品セット"
+        )
+        self.assertFalse(displayable(only_case))
+        self.assertTrue(displayable(legitimate))
+        # The existing collector already excludes some case bundles.  This
+        # display-only change does not attempt to widen source collection.
+
     def test_api_listing_time_is_not_assumed_to_be_discount_duration(self):
         future = row("usb-charger", "USB-C PD65W", saleStart="2026-11-19 20:00")
         old = row("usb-charger", "USB-C PD65W", saleEnd="2026-11-18 23:59")

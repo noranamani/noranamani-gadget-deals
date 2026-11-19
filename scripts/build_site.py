@@ -162,10 +162,10 @@ def product_card(item: dict, editorial_reason: str = "", sort_order: int = 0,
     if merchant_promotion_claim(item):
         variant_note += '<p class="variant-note">セール・クーポン等は販売店の商品名に含まれる表記です。現在の適用条件は確認できていません。</p>'
     return f'''<article class="product-card" data-order="{sort_order}" data-price="{data_price}" data-score="{data_score}" data-reviews="{data_reviews}" data-drop="{data_drop}" data-variant="{data_variant}">
-      <a class="product-image" href="{esc(item.get('url'))}" rel="sponsored nofollow noopener" target="_blank"{affiliate_attrs(item, placement + ":image")}>{image_html}</a>
+      <a class="product-image" href="{esc(item.get('url'))}" rel="sponsored nofollow noopener" target="_blank" aria-label="{esc(item.get('name'))}：楽天市場の商品ページを新しいタブで開く"{affiliate_attrs(item, placement + ":image")}>{image_html}</a>
       <div class="product-body">
         <div class="badges">{''.join(badges)}</div>
-        <h3>{esc(item.get('name'))}</h3>
+        <h3><a class="product-title-link" href="{esc(item.get('url'))}" rel="sponsored nofollow noopener" target="_blank"{affiliate_attrs(item, placement + ":title")}>{esc(item.get('name'))}</a></h3>
         {price_html}
         {meta_html}
         {history_line}
