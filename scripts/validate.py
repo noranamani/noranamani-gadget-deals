@@ -3,6 +3,10 @@ from __future__ import annotations
 
 import json
 import re
+
+from affiliate_quality import displayable, recommendable
+from affiliate_site_audit import audit_affiliate_links
+from build_site import comparison_price_is_uncertain, item_matches_comparison
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -18,32 +22,6 @@ def load(path):
 
 def fail(message):
     raise SystemExit("VALIDATION ERROR: " + message)
-
-
-def item_matches_comparison(item, spec):
-    text = str(item.get("name") or "").lower()
-    for group in spec.get("includeAnyGroups", []):
-        terms = [str(term).lower() for term in group if str(term).strip()]
-        if terms and not any(term in text for term in terms):
-            return False
-    for term in spec.get("excludeAny", []):
-        if str(term).lower() in text:
-            return False
-    return True
-
-
-def comparison_price_is_uncertain(item, spec):
-    variant_type = str(spec.get("priceVariantType") or "")
-    if not variant_type:
-        return False
-    text = str(item.get("name") or "").lower()
-    if variant_type == "power":
-        values = {int(x) for x in re.findall(r"(?<!\d)(\d{1,3})\s*w\b", text, flags=re.IGNORECASE)}
-        return len(values) > 1
-    if variant_type == "capacity":
-        values = {(number, unit) for number, unit in re.findall(r"(?<![a-z0-9])(\d+(?:\.\d+)?)\s*(gb|tb)\b", text, flags=re.IGNORECASE)}
-        return len(values) > 1
-    return False
 
 
 def main():
@@ -78,7 +56,8 @@ def main():
 
     comparison_config = load(CONFIG / "comparisons.json")
     category_by_id = {str(cat.get("id") or ""): cat for cat in products.get("categories", [])}
-    today_jst = datetime.now(timezone(timedelta(hours=9))).date()
+    check_clock = datetime.now(timezone.utc)
+    today_jst = check_clock.astimezone(timezone(timedelta(hours=9))).date()
     rollout_text = str(comparison_config.get("rolloutStartDate") or today_jst.isoformat())
     try:
         rollout_start = datetime.fromisoformat(rollout_text).date()
@@ -89,8 +68,13 @@ def main():
         parent = category_by_id.get(str(spec.get("parentCategory") or ""))
         if not parent:
             continue
-        matches = [item for item in parent.get("items", []) if item_matches_comparison(item, spec)]
-        comparable_items = [item for item in matches if not comparison_price_is_uncertain(item, spec)]
+        # Match build_site.py exactly; otherwise a deliberately withheld
+        # unsafe comparison page could be misdiagnosed as a missing page.
+        matches = [item for item in parent.get("items", [])
+                   if displayable(item) and item_matches_comparison(item, spec)]
+        comparable_items = [item for item in matches
+                            if recommendable(item, check_clock)
+                            and not comparison_price_is_uncertain(item, spec)]
         activate_date = rollout_start + timedelta(days=int(spec.get("activateAfterDays") or 0))
         if (
             today_jst >= activate_date
@@ -99,12 +83,32 @@ def main():
         ):
             comparison_pages.append(DOCS / f"comparison-{spec['id']}.html")
 
-    for path in [DOCS / "index.html", DOCS / "categories.html", DOCS / "comparisons.html", DOCS / "price-drops.html", DOCS / "deals.html", DOCS / "methodology.html", DOCS / "privacy.html", *category_pages, *comparison_pages]:
+    rendered_pages = [DOCS / "index.html", DOCS / "categories.html",
+                      DOCS / "comparisons.html", DOCS / "price-drops.html",
+                      DOCS / "deals.html", DOCS / "methodology.html",
+                      DOCS / "privacy.html", *category_pages, *comparison_pages]
+    site_url = str(load(CONFIG / "site.json").get("site_url") or "").rstrip("/")
+    for path in rendered_pages:
         if not path.exists() or path.stat().st_size < 300:
-            fail(f"missing or too small: {path}")
+            fail("RENDERED_PAGE_MISSING_OR_TOO_SMALL")
         text = path.read_text(encoding="utf-8")
         if "楽天アフィリエイト" not in text:
-            fail(f"affiliate disclosure missing: {path}")
+            fail("AFFILIATE_DISCLOSURE_MISSING")
+        # Canonical URLs are self-referential, absolute and match sitemap
+        # URLs; this prevents conflicting SEO signals on category pages.
+        if site_url:
+            expected = site_url + "/" + path.name
+            if f'<link rel="canonical" href="{expected}">' not in text:
+                fail("CANONICAL_URL_MISMATCH")
+
+    # Verify original API-returned affiliate URLs survived HTML escaping and
+    # every outbound link retains sponsored attributes and product mapping.
+    try:
+        audit = audit_affiliate_links(products, rendered_pages)
+    except Exception as exc:
+        if isinstance(exc, SystemExit):
+            raise
+        fail("AFFILIATE_LINK_AUDIT_FAILED")
 
     secret_patterns = [r"RAKUTEN_ACCESS_KEY\s*=", r"GITHUB_WRITE_TOKEN\s*=", r"ghp_[A-Za-z0-9]+", r"github_pat_[A-Za-z0-9_]+"]
     for path in list(DATA.glob("*.json")) + list(DOCS.rglob("*")):
@@ -117,7 +121,8 @@ def main():
         for pattern in secret_patterns:
             if re.search(pattern, text):
                 fail(f"possible secret leaked into {path}")
-    print("validation ok")
+    print("validation ok: pages=%d affiliate_links=%d"
+          % (audit["pagesChecked"], audit["linksChecked"]))
 
 
 if __name__ == "__main__":
