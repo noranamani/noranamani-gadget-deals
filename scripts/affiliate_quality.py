@@ -86,7 +86,8 @@ def displayable(item: dict) -> bool:
     if category == "mobile-router":
         # A replacement shell or protective film is not a network device,
         # even if the title repeats "SIMフリールーター" as an SEO keyword.
-        # Keep genuine router bundles explicitly selling the device itself.
+        # Do not additionally hide explicit device bundles that pass the
+        # existing collector filter; some other bundles are already excluded.
         if (re.search(r"専用.{0,55}(?:ケース|カバー|保護フィルム)", title, re.I)
                 and not re.search(r"(?:ルーター|wi-?fi|端末)本体.{0,30}(?:付|付き|同梱|セット)",
                                   title, re.I)):
