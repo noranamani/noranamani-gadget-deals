@@ -62,6 +62,13 @@ class BuildAnalyticsTests(unittest.TestCase):
             build_site.main()
             usb = (docs / "category-usb-charger.html").read_text()
             index = (docs / "index.html").read_text()
+            sim = (docs / "sim-optimizer.html").read_text()
+            self.assertIn('href="sim-optimizer.html"', index)
+            self.assertIn('id="sim-tool"', sim)
+            self.assertIn('id="sim-best"', sim)
+            self.assertNotIn('href="category-mobile-router.html"', sim) if not any(
+                c["id"] == "mobile-router" for c in categories) else None
+            self.assertIn('<link rel="canonical" href="https://example.invalid/sim-optimizer.html">', sim)
             router = (docs / "category-mobile-router.html").read_text()
             wireless = (docs / "category-wireless-charger.html").read_text()
             deal = (docs / "deals.html").read_text()
@@ -143,6 +150,7 @@ class BuildAnalyticsTests(unittest.TestCase):
             (cfg / "analytics.json").write_text('{"ga4_measurement_id": "G-ABC12345"}')
             build_site.main()
             self.assertIn("googletagmanager.com/gtag/js?id=G-ABC12345", (docs / "index.html").read_text())
+            self.assertIn('gtag("config","G-ABC12345")', (docs / "sim-optimizer.html").read_text())
             with (patch.object(validate, "CONFIG", cfg),
                   patch.object(validate, "DATA", data),
                   patch.object(validate, "DOCS", docs)):
