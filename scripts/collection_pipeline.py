@@ -99,6 +99,12 @@ def collect_generation(root: Path, state: Path, requester, verification: dict,
               'affiliateVerified': verification.get('verified') is True,
               'affiliateVerificationExpiresAt': verification.get('expiresAt'),
               'categories': categories, 'historyPreservation': preservation}
+    if verification.get('mode') == 'maintenance_continuity':
+        # Disclose the original expiry without pretending that it was renewed.
+        # Cloud publication can independently reject an overlong exception.
+        status['affiliateVerificationMode'] = 'maintenance_continuity'
+        status['affiliateOriginalProofExpiresAt'] = verification['originalProofExpiresAt']
+        status['affiliateContinuityAuthorizedAt'] = verification['authorizedAt']
     if output_policy is not None:
         if not isinstance(output_policy, OutputPolicy):
             raise PipelineError('OUTPUT_POLICY_INVALID')
