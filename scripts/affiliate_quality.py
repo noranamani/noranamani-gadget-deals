@@ -12,11 +12,11 @@ from datetime import datetime, timezone, timedelta
 from category_relevance import is_relevant
 
 JST = timezone(timedelta(hours=9))
-SIZE = re.compile(r"(?<![a-z0-9])([0-9]+(?:\\.[0-9]+)?)\\s*(gb|tb)\\b", re.I)
-WATTS = re.compile(r"(?<![a-z0-9])([0-9]{1,3})\\s*w\\b", re.I)
-CAPACITY = re.compile(r"(?<![a-z0-9])([0-9]{3,6})\\s*mah\\b", re.I)
+SIZE = re.compile(r"(?<![a-z0-9])([0-9]+(?:\.[0-9]+)?)\s*(gb|tb)\b", re.I)
+WATTS = re.compile(r"(?<![a-z0-9])([0-9]{1,3})\s*w\b", re.I)
+CAPACITY = re.compile(r"(?<![a-z0-9])([0-9]{3,6})\s*mah\b", re.I)
 CHOICES = re.compile(r"容量選択|容量を選|タイプ選択|サイズ選択|選べる容量|各容量", re.I)
-PROMOTION = re.compile(r"クーポン|セール|期間限定|本日限定|週末限定|ブラックフライデー|\\d{1,2}/\\d{1,2}\\s*まで", re.I)
+PROMOTION = re.compile(r"クーポン|セール|期間限定|本日限定|週末限定|ブラックフライデー|\d{1,2}/\d{1,2}\s*まで", re.I)
 
 
 def variant_price_uncertain(item: dict) -> bool:
