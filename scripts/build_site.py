@@ -7,6 +7,9 @@ import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from affiliate_quality import (displayable, listing_period, merchant_promotion_claim,
+                               recommendable, variant_price_uncertain)
+
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 ASSETS = DOCS / "assets"
@@ -98,16 +101,35 @@ def unique_current_items(products: dict) -> list[dict]:
     return list(by_code.values())
 
 
-def product_card(item: dict, editorial_reason: str = "", sort_order: int = 0, price_uncertain: bool = False) -> str:
+def affiliate_attrs(item: dict, placement: str) -> str:
+    """Public, non-secret GA4 dimensions. Never put full tracked URLs in events."""
+    return (f' data-affiliate-code="{esc(item.get("code"))}"'
+            f' data-affiliate-category="{esc(item.get("categoryId"))}"'
+            f' data-affiliate-placement="{esc(placement)}"')
+
+
+def product_card(item: dict, editorial_reason: str = "", sort_order: int = 0,
+                 price_uncertain: bool = False, placement: str = "card") -> str:
+    now = datetime.now(timezone.utc)
+    period = listing_period(item, now)
+    price_uncertain = price_uncertain or variant_price_uncertain(item)
+    safe = recommendable(item, now) and not price_uncertain
+
     img = esc(item.get("image"))
     image_html = (f'''<img src="{img}" alt="" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.style.display='grid'">'''
         '<div class="noimg" style="display:none">画像なし</div>') if img else '<div class="noimg">画像なし</div>'
     badges = []
     if price_uncertain:
-        badges.append('<span class="badge variant">仕様選択あり</span>')
-    elif item.get("dealLevel") == "strong":
+        badges.append('<span class="badge variant">仕様・表示価格要確認</span>')
+    if period == "upcoming":
+        badges.append('<span class="badge variant">掲載開始前</span>')
+    elif period == "ended":
+        badges.append('<span class="badge variant">掲載期間終了</span>')
+    elif period == "unverified":
+        badges.append('<span class="badge variant">掲載期間未確認</span>')
+    if safe and item.get("dealLevel") == "strong":
         badges.append('<span class="badge strong">大幅値下げ候補</span>')
-    elif item.get("isDeal"):
+    elif safe and item.get("isDeal"):
         badges.append('<span class="badge deal">特価候補</span>')
     if item.get("postageIncluded"):
         badges.append('<span class="badge">送料無料</span>')
@@ -115,7 +137,7 @@ def product_card(item: dict, editorial_reason: str = "", sort_order: int = 0, pr
         badges.append(f'<span class="badge">ポイント{int(item["pointRate"])}倍</span>')
     drop = item.get("dropPct")
     history_line = ""
-    if not price_uncertain and drop is not None and item.get("baselinePrice"):
+    if safe and drop is not None and item.get("baselinePrice"):
         if float(drop) >= 0:
             change_text = f"{pct(drop)}安"
         else:
@@ -123,19 +145,24 @@ def product_card(item: dict, editorial_reason: str = "", sort_order: int = 0, pr
         history_line = f'<div class="history">履歴中央値 {yen(item["baselinePrice"])} → 現在 {yen(item["price"])}（{change_text}）</div>'
     reason = f'<p class="reason">{esc(editorial_reason)}</p>' if editorial_reason else ""
     data_price = int(item.get("price") or 0)
-    data_score = -999.0 if price_uncertain else float(item.get("score") or 0)
+    data_score = -999.0 if not safe else float(item.get("score") or 0)
     data_reviews = int(item.get("reviewCount") or 0)
-    data_drop = -999.0 if price_uncertain else (float(drop) if drop is not None else -999.0)
-    data_variant = 1 if price_uncertain else 0
+    data_drop = -999.0 if not safe else (float(drop) if drop is not None else -999.0)
+    data_variant = 0 if safe else 1
     price_html = f'<div class="price">{yen(item.get("price"))}</div>'
     meta_html = f'<div class="meta">★ {float(item.get("reviewAverage") or 0):.2f} / {int(item.get("reviewCount") or 0):,}件 ・ 比較スコア {float(item.get("score") or 0):.1f}</div>'
     variant_note = ""
-    if price_uncertain:
+    if not safe:
         price_html = f'<div class="price"><span class="price-prefix">表示価格</span> {yen(item.get("price"))}</div>'
         meta_html = f'<div class="meta">★ {float(item.get("reviewAverage") or 0):.2f} / {int(item.get("reviewCount") or 0):,}件 ・ 価格比較対象外</div>'
-        variant_note = '<p class="variant-note">複数の容量・出力などを選べる商品のため、表示価格がこの比較条件の仕様価格とは限りません。販売ページで対象仕様の価格をご確認ください。</p>'
+        if price_uncertain:
+            variant_note = '<p class="variant-note">容量・出力などの仕様選択があり、表示価格が希望する仕様の価格とは限りません。販売ページで価格をご確認ください。</p>'
+        else:
+            variant_note = '<p class="variant-note">楽天API上の掲載開始・終了時刻について確認が必要です。購入先で最新の掲載状況をご確認ください。</p>'
+    if merchant_promotion_claim(item):
+        variant_note += '<p class="variant-note">セール・クーポン等は販売店の商品名に含まれる表記です。現在の適用条件は確認できていません。</p>'
     return f'''<article class="product-card" data-order="{sort_order}" data-price="{data_price}" data-score="{data_score}" data-reviews="{data_reviews}" data-drop="{data_drop}" data-variant="{data_variant}">
-      <a class="product-image" href="{esc(item.get('url'))}" rel="sponsored nofollow" target="_blank">{image_html}</a>
+      <a class="product-image" href="{esc(item.get('url'))}" rel="sponsored nofollow noopener" target="_blank"{affiliate_attrs(item, placement + ":image")}>{image_html}</a>
       <div class="product-body">
         <div class="badges">{''.join(badges)}</div>
         <h3>{esc(item.get('name'))}</h3>
@@ -145,7 +172,7 @@ def product_card(item: dict, editorial_reason: str = "", sort_order: int = 0, pr
         {variant_note}
         {reason}
         <div class="shop">{esc(item.get('shopName'))}</div>
-        <a class="cta" href="{esc(item.get('url'))}" rel="sponsored nofollow" target="_blank">楽天市場で確認</a>
+        <a class="cta" href="{esc(item.get('url'))}" rel="sponsored nofollow noopener" target="_blank"{affiliate_attrs(item, placement + ":button")}>楽天市場で仕様・価格を確認</a>
       </div>
     </article>'''
 
@@ -154,6 +181,20 @@ def layout(site: dict, title: str, body: str, description: str = "", active_cate
     site_name = esc(site.get("site_name", "noranamani GADGET DEALS"))
     desc = esc(description or site.get("tagline", "ガジェットの価格比較と特価候補"))
     category_queries = load(CONFIG / "queries.json", [])
+    analytics_cfg = load(CONFIG / "analytics.json", {})
+    measurement_id = str(analytics_cfg.get("ga4_measurement_id") or "").strip()
+    if measurement_id and not re.fullmatch(r"G-[A-Z0-9]{6,16}", measurement_id):
+        raise ValueError("GA4_MEASUREMENT_ID_INVALID")
+    analytics_tag = ""
+    if measurement_id:
+        analytics_tag = (
+            f'<script async src="https://www.googletagmanager.com/gtag/js?id={measurement_id}"></script>'
+            '<script>window.dataLayer=window.dataLayer||[];'
+            'function gtag(){dataLayer.push(arguments);}'
+            'gtag("js",new Date());'
+            f'gtag("config","{measurement_id}");</script>'
+        )
+
     category_nav_parts = []
     for row in category_queries:
         if not isinstance(row, dict):
@@ -183,11 +224,27 @@ def layout(site: dict, title: str, body: str, description: str = "", active_cate
 <meta name="description" content="{desc}">
 <meta name="google-site-verification" content="SOlcKHA0_jr9rUKvudZcu9H27wc2si9Kq6B4anfCE6U" />
 <link rel="stylesheet" href="assets/style.css">
+{analytics_tag}
 </head><body>
 <header><div class="wrap header-inner"><a class="brand" href="index.html">{site_name}</a><nav><a href="comparisons.html">条件別比較</a><a href="price-drops.html">値下がりランキング</a><a href="deals.html">今日の特価候補</a><a href="methodology.html">比較方法</a><a href="{esc(site.get('note_url'))}" target="_blank" rel="noopener">実体験note</a></nav></div></header>
 <div class="site-shell">{sidebar}<main class="main-content">{body}</main></div>
 <footer><div class="wrap"><p>このサイトには楽天アフィリエイトのリンクが含まれます。価格・在庫等は取得時点の情報です。購入前に販売ページをご確認ください。</p><p><a href="privacy.html">運営・プライバシー</a> ・ Supported by Rakuten Developers</p></div></footer>
 <script>
+document.addEventListener("click", function(event) {{
+  const link = event.target.closest("a[data-affiliate-code]");
+  if (!link || typeof window.gtag !== "function") return;
+  try {{
+    const destination = new URL(link.href, location.href);
+    if (destination.hostname !== "hb.afl.rakuten.co.jp" || !destination.pathname.startsWith("/hgc/")) return;
+    window.gtag("event", "affiliate_click", {{
+      item_code: link.dataset.affiliateCode,
+      item_category: link.dataset.affiliateCategory,
+      link_placement: link.dataset.affiliatePlacement,
+      link_target: "rakuten",
+      transport_type: "beacon"
+    }});
+  }} catch (_) {{ /* Analytics must never prevent shopping navigation. */ }}
+}});
 document.addEventListener("click", function(event) {{
   const button = event.target.closest("[data-sort]");
   if (!button) return;
