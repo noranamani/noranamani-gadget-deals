@@ -84,7 +84,7 @@ def main():
         ):
             comparison_pages.append(DOCS / f"comparison-{spec['id']}.html")
 
-    rendered_pages = [DOCS / "index.html", DOCS / "sim-optimizer.html", DOCS / "categories.html",
+    rendered_pages = [DOCS / "index.html", DOCS / "sim-optimizer.html", DOCS / "product-selector.html", DOCS / "categories.html",
                       DOCS / "comparisons.html", DOCS / "price-drops.html",
                       DOCS / "deals.html", DOCS / "methodology.html",
                       DOCS / "privacy.html", *category_pages, *comparison_pages]
@@ -123,6 +123,13 @@ def main():
                    '入力内容をサーバーへ送信・保存しません'):
         if marker not in tool_html:
             fail("SIM_OPTIMIZER_MARKUP_MISSING")
+
+    selector_html = (DOCS / "product-selector.html").read_text(encoding="utf-8")
+    for marker in ('id="selector-category"', 'id="selector-grid"',
+                   'id="selector-count"', 'id="selector-price"',
+                   'id="selector-reset"', '楽天アフィリエイト'):
+        if marker not in selector_html:
+            fail("PRODUCT_SELECTOR_MARKUP_MISSING")
 
     if ga4_id:
         privacy_html = (DOCS / "privacy.html").read_text(encoding="utf-8")
