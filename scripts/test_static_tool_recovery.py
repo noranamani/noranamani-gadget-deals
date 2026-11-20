@@ -14,12 +14,13 @@ from recover_static_tool_pages import (
 
 class RecoverySafetyTests(unittest.TestCase):
     def test_add_links_to_existing_home_without_rewriting_existing_cards(self):
-        old = '<html><aside><a href="deals.html">特価候補</a></aside><article>OldPrice123</article></html>'
+        old = '<html><aside><a href="deals.html">特価候補</a></aside><main class="main-content"><article>OldPrice123</article></main></html>'
         new = safe_index_patch(old)
         self.assertIn('<article>OldPrice123</article>', new)
         self.assertIn('href="sim-optimizer.html"', new)
         self.assertIn('href="product-selector.html"', new)
         self.assertIn('href="deals.html"', new)
+        self.assertIn("最終取得は2026/11/19 06:10", new)
         self.assertEqual(new.count('OldPrice123'), 1)
 
     def test_already_patched_home_stops_instead_of_duplicate_deployment(self):
@@ -43,7 +44,7 @@ class RecoverySafetyTests(unittest.TestCase):
             docs = Path(t)
             (docs/'category-usb-charger.html').write_text(
                 '<article class="product-card" data-price="1234" data-reviews="20" '
-                'data-score="75.4" data-drop="12.0" data-variant="0">'
+                'data-score="75.4" data-drop="-12.0" data-variant="0">'
                 '<a href="https://hb.afl.rakuten.co.jp/hgc/private-example">Shop</a>'
                 '<h3>充電器 &amp; USB-C</h3></article>',
                 encoding="utf-8")
