@@ -309,9 +309,27 @@ def main() -> int:
         result = recover_archive(args.artifact, args.output)
         print("STATIC_TOOLS_RECOVERY_READY: " + json.dumps(result, sort_keys=True))
         return 0
-    except Exception:
-        # Never log raw runtime errors, product names, links or secrets.
-        print("STATIC_TOOLS_RECOVERY_BLOCKED")
+    except Exception as exc:
+        # Only explicitly authored fixed error codes are allowed in Actions logs.
+        # Never reflect arbitrary exception strings, product names, paths or URLs.
+        allowed = {
+            "ARCHIVE_SOURCE_MISMATCH", "ARCHIVE_MANIFEST_INVALID",
+            "ARCHIVE_FILE_SET_MISMATCH", "ARCHIVE_DIGEST_MISMATCH",
+            "ARCHIVE_PIN_MISMATCH", "ARCHIVE_ALREADY_CONTAINS_TOOLS",
+            "ARCHIVE_SYMLINK_DENIED", "LIVE_PATH_NOT_ALLOWED",
+            "LIVE_SOURCE_NOT_200", "LIVE_SOURCE_TOO_LARGE",
+            "LIVE_HAS_NEWER_OR_DIFFERENT_PUBLICATION", "INDEX_STRUCTURE_CHANGED",
+            "SITEMAP_STRUCTURE_CHANGED", "SITEMAP_ALREADY_CONTAINS_TOOL",
+            "CATEGORY_ID_INVALID", "ARCHIVE_CATEGORY_MISSING",
+            "CARD_FORMAT_INVALID", "CARD_TITLE_MISSING", "CARD_TITLE_EMPTY",
+            "ARCHIVE_NO_COMPARABLE_CARDS", "OUTPUT_MUST_NOT_EXIST",
+            "PRIVACY_PAGE_STRUCTURE_CHANGED", "SITE_CONFIG_URL_MISMATCH",
+            "GA4_REQUIRED", "CATEGORIES_UNEXPECTED",
+            "PUBLISHED_PRODUCT_BYTES_CHANGED", "RECOVERY_TOOL_INCOMPLETE",
+            "SELECTOR_INTERNAL_LINK_MISSING", "MISSING_REQUIRED_INPUT"
+        }
+        reason = str(exc) if type(exc) is ValueError and str(exc) in allowed else "INTERNAL"
+        print("STATIC_TOOLS_RECOVERY_BLOCKED: " + reason)
         return 1
 
 
