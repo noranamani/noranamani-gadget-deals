@@ -30,7 +30,7 @@ SELECTOR_STYLE = r"""
 """
 
 SELECTOR_JS = r"""
-/* Filter published data only; no API, storage, or transmission of filters. */
+/* Filtering stays on device. A value-free GA4 use event is optional. */
 (function () {
   "use strict";
   var ALLOWED = ["score","price","reviews","drop"];
@@ -61,6 +61,14 @@ SELECTOR_JS = r"""
   if (typeof module!=="undefined" && module.exports) module.exports.choose=choose;
   if (typeof document==="undefined") return;
   function get(id){return document.getElementById(id);}
+  var usageReported = false;
+  function trackUsage() {
+    if (usageReported) return;
+    usageReported = true;
+    // Do not send filters, prices, item IDs, search terms or category values.
+    if (typeof window === "undefined" || typeof window.gtag !== "function") return;
+    try { window.gtag("event", "product_selector_used"); } catch (_) {}
+  }
   function init() {
     var grid=get("selector-grid");
     if (!grid) return;
@@ -90,10 +98,11 @@ SELECTOR_JS = r"""
       }
     }
     ["selector-category","selector-price","selector-reviews","selector-order"].forEach(function(id){
-      get(id).addEventListener("change",update);
-      get(id).addEventListener("input",update);
+      get(id).addEventListener("change",function(){trackUsage();update();});
+      get(id).addEventListener("input",function(){trackUsage();update();});
     });
     get("selector-reset").addEventListener("click",function(){
+      trackUsage();
       get("selector-category").value="all";get("selector-price").value="";
       get("selector-reviews").value="0";get("selector-order").value="score";update();
     });

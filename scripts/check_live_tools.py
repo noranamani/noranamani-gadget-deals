@@ -98,12 +98,16 @@ def inspect_page(name: str, response: Response, measurement_id: str) -> str:
                 'id="sim-tool"', 'id="sim-count"', 'id="sim-best"',
                 'id="sim-a-annual"', 'id="sim-b-annual"', 'function calculate(')):
             return "SIM_TOOL_CONTROLS_MISSING"
+        if response.body.count('window.gtag("event", "sim_tool_used")') != 1:
+            return "SIM_USAGE_EVENT_MISSING_OR_DUPLICATE"
     if name == "product-selector.html":
         if not all(marker in response.body for marker in (
                 'id="selector-grid"', 'id="selector-category"',
                 'id="selector-price"', 'id="selector-reset"',
                 'function choose(')):
             return "SELECTOR_CONTROLS_MISSING"
+        if response.body.count('window.gtag("event", "product_selector_used")') != 1:
+            return "SELECTOR_USAGE_EVENT_MISSING_OR_DUPLICATE"
     return "READY"
 
 

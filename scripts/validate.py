@@ -132,8 +132,16 @@ def main():
             fail("PRODUCT_SELECTOR_MARKUP_MISSING")
 
     if ga4_id:
+        # Require the exact value-free event name in each real tool page.
+        # Form values remain local; these events carry no form parameters.
+        for name, event in (("sim-optimizer.html", "sim_tool_used"),
+                            ("product-selector.html", "product_selector_used")):
+            rendered = (DOCS / name).read_text(encoding="utf-8")
+            if rendered.count('window.gtag("event", "' + event + '")') != 1:
+                fail("GA4_TOOL_USAGE_EVENT_MISSING_OR_DUPLICATE")
         privacy_html = (DOCS / "privacy.html").read_text(encoding="utf-8")
-        if "当サイトはGoogle Analytics 4（GA4）を利用" not in privacy_html:
+        if ("当サイトはGoogle Analytics 4（GA4）を利用" not in privacy_html
+                or "入力した通信量・料金・予算・絞り込み条件などの値は送信しません" not in privacy_html):
             fail("GA4_PRIVACY_DISCLOSURE_MISSING")
 
     # Verify original API-returned affiliate URLs survived HTML escaping and

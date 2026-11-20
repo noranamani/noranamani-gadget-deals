@@ -1,8 +1,8 @@
 """Offline mobile-plan comparison tool: all prices and capacity are user supplied.
 
 No carrier pricing, legal discount entitlement, or access to cellular/GA data
-is inferred. Page-view analytics in the common layout is separate from this
-calculator; form values are never transmitted.
+is inferred. Optional aggregate GA4 tool-use events have no form values and
+are emitted only after a real user action (never on page initialization).
 """
 import html
 
@@ -47,7 +47,7 @@ SIM_STYLE = r"""
 """
 
 SIM_JS = r"""
-/* Form values stay on this device. No network, local storage or cookies. */
+/* Form values stay on this device. Only a value-free GA4 use event is optional. */
 (function () {
   "use strict";
   var COUNT = 6, MAX_PRICE = 10000000, MAX_GB = 10000;
@@ -121,6 +121,14 @@ SIM_JS = r"""
   }
   if (typeof document === "undefined") return;
   var get = function (id) {return document.getElementById(id);};
+  var usageReported = false;
+  function trackUsage() {
+    if (usageReported) return;
+    usageReported = true;
+    // Never pass prices, usage, carrier names, line counts or form values.
+    if (typeof window === "undefined" || typeof window.gtag !== "function") return;
+    try { window.gtag("event", "sim_tool_used"); } catch (_) {}
+  }
   function read(id) {
     var text = get(id).value.trim();
     return text === "" ? null : Number(text);
@@ -178,12 +186,13 @@ SIM_JS = r"""
   }
   function init() {
     if (!get("sim-count")) return;
-    get("sim-count").addEventListener("change",configureLines);
+    get("sim-count").addEventListener("change",function(){trackUsage();configureLines();});
     document.querySelectorAll("#sim-tool input").forEach(function(el){
-      el.addEventListener("input",update);
-      el.addEventListener("change",update);
+      el.addEventListener("input",function(){trackUsage();update();});
+      el.addEventListener("change",function(){trackUsage();update();});
     });
     get("sim-reset").addEventListener("click",function(){
+      trackUsage();
       document.querySelectorAll("#sim-tool input[type=number]").forEach(function(el){el.value=el.defaultValue;});
       document.querySelectorAll("#sim-tool input[type=checkbox]").forEach(function(el){el.checked=false;});
       get("sim-count").value="1";

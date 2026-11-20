@@ -25,6 +25,11 @@ def page(name):
                                  '<div id="selector-price"></div><div id="selector-reset"></div>'
                                  '<script>function choose(value){return value;}</script>'
     }[name]
+    event = {
+        "index.html": "",
+        "sim-optimizer.html": '<script>window.gtag("event", "sim_tool_used");</script>',
+        "product-selector.html": '<script>window.gtag("event", "product_selector_used");</script>',
+    }[name]
     return ('<!doctype html><html lang="ja"><head>'
             '<link rel="canonical" href="' + live.SITE_URL + '/' + name + '">'
             '<script src="https://www.googletagmanager.com/gtag/js?id=' + ID + '"></script>'
@@ -32,7 +37,7 @@ def page(name):
             'window.gtag("event", "affiliate_click", {});</script>'
             '</head><body><p>楽天アフィリエイトの掲載があります。'
             '公開済みページの検証テキストを300文字以上にするための検証説明。'
-            + ("テストサイト" * 36) + '</p>' + tool + '</body></html>')
+            + ("テストサイト" * 36) + '</p>' + tool + event + '</body></html>')
 
 
 def snapshots():
@@ -70,6 +75,19 @@ class LiveReadinessTests(unittest.TestCase):
             old.body.replace(ID, "G-OLD123456"))
         self.assertEqual(live.inspect_site(rows.__getitem__, ID)["product-selector.html"],
                          "GA4_SCRIPT_MISSING_OR_DUPLICATE")
+
+    def test_value_free_use_event_required_on_live_tools(self):
+        rows = snapshots()
+        for name, event, error in (
+                ("sim-optimizer.html", "sim_tool_used", "SIM_USAGE_EVENT_MISSING_OR_DUPLICATE"),
+                ("product-selector.html", "product_selector_used",
+                 "SELECTOR_USAGE_EVENT_MISSING_OR_DUPLICATE")):
+            with self.subTest(name=name):
+                copy = dict(rows)
+                current = copy[name]
+                copy[name] = live.Response(200, "text/html",
+                    current.body.replace('window.gtag("event", "' + event + '")', 'missing_event'))
+                self.assertEqual(live.inspect_site(copy.__getitem__, ID)[name], error)
 
     def test_html_fallback_and_sitemap_inconsistency_fail(self):
         rows = snapshots()
