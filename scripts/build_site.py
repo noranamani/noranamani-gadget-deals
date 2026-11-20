@@ -209,6 +209,46 @@ def product_card(item: dict, editorial_reason: str = "", sort_order: int = 0,
     </article>'''
 
 
+def free_tool_schema(site: dict, active_page: str, canonical_file: str,
+                     description: str) -> str:
+    """Machine-readable, factual metadata for the two browser-based free tools.
+
+    No fabricated reviews, ratings, live mobile tariffs, or ranking promises.
+    Only the canonical tool URLs get WebApplication markup.
+    """
+    details = {
+        "sim-optimizer": ("sim-optimizer.html", "家族の通信費・格安SIM見直し診断",
+                          "FinanceApplication"),
+        "product-selector": ("product-selector.html", "ガジェット選定・価格比較ツール",
+                             "ShoppingApplication"),
+    }
+    if active_page not in details:
+        return ""
+    filename, name, category = details[active_page]
+    if canonical_file != filename:
+        raise ValueError("FREE_TOOL_CANONICAL_MISMATCH")
+    site_url = str(site.get("site_url") or "").rstrip("/")
+    if not site_url.startswith("https://"):
+        raise ValueError("FREE_TOOL_SITE_URL_INVALID")
+    url = site_url + "/" + filename
+    schema = {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "@id": url + "#webapp",
+        "name": name,
+        "url": url,
+        "description": description,
+        "applicationCategory": category,
+        "operatingSystem": "Any",
+        "isAccessibleForFree": True,
+        "inLanguage": "ja",
+        "offers": {"@type": "Offer", "price": 0, "priceCurrency": "JPY"},
+    }
+    # Safe inside <script> even if a future description contains HTML.
+    payload = json.dumps(schema, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
+    return '<script type="application/ld+json">' + payload + '</script>'
+
+
 def layout(site: dict, title: str, body: str, description: str = "",
            active_category_id: str = "", active_page: str = "",
            canonical_file: str = "", page_css: str = "") -> str:
@@ -226,6 +266,8 @@ def layout(site: dict, title: str, body: str, description: str = "",
             f'<meta property="og:title" content="{esc(title)} | {site_name}">'
             f'<meta property="og:description" content="{desc}">'
         )
+    tool_jsonld = free_tool_schema(site, active_page, canonical_file,
+                                    description or str(site.get("tagline") or ""))
     category_queries = load(CONFIG / "queries.json", [])
     analytics_cfg = load(CONFIG / "analytics.json", {})
     measurement_id = str(analytics_cfg.get("ga4_measurement_id") or "").strip()
@@ -278,6 +320,7 @@ def layout(site: dict, title: str, body: str, description: str = "",
 <link rel="stylesheet" href="assets/style.css">
 {css_tag}
 {analytics_tag}
+{tool_jsonld}
 </head><body>
 <header><div class="wrap header-inner"><a class="brand" href="index.html">{site_name}</a><nav><a href="comparisons.html">条件別比較</a><a href="price-drops.html">値下がりランキング</a><a href="deals.html">今日の特価候補</a><a href="methodology.html">比較方法</a><a href="sim-optimizer.html">通信費診断</a><a href="{esc(site.get('note_url'))}" target="_blank" rel="noopener">実体験note</a></nav></div></header>
 <div class="site-shell">{sidebar}<main class="main-content">{body}</main></div>
