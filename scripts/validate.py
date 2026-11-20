@@ -121,7 +121,7 @@ def main():
         for name, category in (("sim-optimizer.html", "FinanceApplication"),
                                ("product-selector.html", "ShoppingApplication")):
             html_page = (DOCS / name).read_text(encoding="utf-8")
-            matches = re.findall(r'<script type="application/ld\\+json">(.*?)</script>',
+            matches = re.findall(r'<script type="application/ld\+json">(.*?)</script>',
                                  html_page, flags=re.DOTALL)
             if len(matches) != 1:
                 fail("FREE_TOOL_SCHEMA_MISSING_OR_DUPLICATE")
