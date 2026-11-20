@@ -142,6 +142,23 @@ def run_script(root: Path, name: str, *args):
     except (OSError, subprocess.TimeoutExpired):
         raise PipelineError('BUILD_UNAVAILABLE_OR_TIMEOUT') from None
     if result.returncode:
+        # Do not print subprocess stdout/stderr: it can contain Rakuten URLs,
+        # product titles, environment paths or private operational details.
+        # Only fixed stage names and explicitly allowlisted validation codes
+        # may be exposed in GitHub Actions logs.
+        stage = {
+            'build_site.py': 'SITE_BUILD',
+            'validate.py': 'SITE_VALIDATE',
+            'build_note_article.py': 'NOTE_BUILD',
+            'check_note_bundle.py': 'NOTE_VALIDATE',
+        }.get(name, 'OTHER')
+        code = 'UNCLASSIFIED'
+        if name == 'validate.py':
+            diagnostic = (result.stdout + b'\n' + result.stderr).decode('utf-8', 'replace')
+            match = re.search(r'VALIDATION ERROR: ([A-Z][A-Z0-9_]{2,79})(?:\\s|$)', diagnostic)
+            if match:
+                code = match.group(1)
+        print(f'PUBLICATION_PREPARE_FAILED_STAGE: {stage} / {code}', flush=True)
         raise PipelineError('BUILD_OR_VALIDATION_FAILED')
 
 
