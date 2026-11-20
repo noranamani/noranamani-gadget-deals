@@ -1,0 +1,91 @@
+name: One-time free tools 404 recovery (historical snapshot unchanged)
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/recover-free-tools-20261120.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: gadget-production-publication
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.repository == 'noranamani/noranamani-gadget-deals' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12'
+      - name: Get immutable archive from last VERIFIED Pages publication only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 44405513424 \
+            --repo "$GITHUB_REPOSITORY" \
+            --name validated-publication \
+            --dir "$RUNNER_TEMP/recovery-source"
+      - name: Validate archive and unchanged current public site; add ONLY two tools
+        run: |
+          python -X utf8 scripts/recover_static_tool_pages.py \
+            --artifact "$RUNNER_TEMP/recovery-source" \
+            --output "$RUNNER_TEMP/recovered/docs"
+      - name: Upload one-time historical site plus standalone tools
+        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        with:
+          path: ${{ runner.temp }}/recovered/docs
+
+  deploy:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12'
+      - name: Refuse if another publication changed the Pages baseline
+        run: python -X utf8 scripts/recover_static_tool_pages.py --check-only
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+      - id: deployment
+        name: Publish static tool-only recovery
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+
+  verify:
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12'
+      - name: Verify both public tool URLs, GA4 events, archive integrity and navigation
+        run: python -X utf8 scripts/check_recovered_tool_pages.py
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
