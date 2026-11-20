@@ -113,6 +113,14 @@ class DailyIssueTests(unittest.TestCase):
                                        'NONE','true'),'DEPLOY_NOT_VERIFIED')
         self.assertEqual(alert_reason('success','success','failure','ready',
                                        'NONE','true'),'WEEKLY_NOTE_MATERIALS_FAILED')
+        self.assertEqual(alert_reason('success','success','skipped','ready',
+                                        'NONE','true', verify_result='failure'),
+                         'LIVE_PUBLICATION_NOT_VERIFIED')
+        self.assertEqual(alert_reason('success','success','skipped','ready',
+                                        'NONE','true', verify_result='skipped'),
+                         'LIVE_PUBLICATION_NOT_VERIFIED')
+        self.assertIsNone(alert_reason('success','success','skipped','ready',
+                                       'NONE','true', verify_result='success'))
 
     def test_first_failure_creates_one_issue_and_closed_issue_also_suppresses_next(self):
         calls=[]
@@ -165,6 +173,26 @@ class DailyIssueTests(unittest.TestCase):
             self.assertEqual(alert_main(),0)
             self.assertEqual(notify.call_count,2)
 
+    def test_live_verification_failure_alerts_before_recovery_cutoff(self):
+        # Once Pages itself succeeded, later scheduled runs observe
+        # "already_published" and cannot safely retry; don't defer this alert.
+        base = {'GITHUB_REPOSITORY': 'noranamani/noranamani-gadget-deals',
+                'GITHUB_REF': 'refs/heads/main', 'GITHUB_EVENT_NAME': 'schedule',
+                'PREPARE_RESULT': 'success', 'GATE_STATUS': 'ready',
+                'GATE_REASON': 'NONE', 'PUBLISH_NEEDED': 'true',
+                'DEPLOY_RESULT': 'success', 'LIVE_VERIFY_RESULT': 'failure',
+                'NOTE_RESULT': 'skipped', 'GITHUB_RUN_ID': RUN_ID,
+                'GH_TOKEN': 'test-token'}
+        with patch.dict(os.environ, base), \
+             patch('publication_daily_alert.datetime') as clock, \
+             patch('publication_daily_alert.notify_once') as notify:
+            clock.now.return_value = NOW.replace(hour=8, minute=30)
+            notify.return_value = {'status': 'CREATED'}
+            self.assertEqual(alert_main(), 1)
+            notify.assert_called_once()
+            self.assertEqual(notify.call_args.kwargs['reason'],
+                             'LIVE_PUBLICATION_NOT_VERIFIED')
+
     def test_workflow_uses_soft_gate_only_before_prepare_and_manual_is_strict(self):
         root=Path(__file__).resolve().parents[1]
         y=(root/'.github/workflows/windows-daily-publish.yml').read_text()
@@ -173,6 +201,12 @@ class DailyIssueTests(unittest.TestCase):
         self.assertIn('--scheduled-check',a)
         self.assertNotIn('--scheduled-check',b)
         self.assertIn('issues: write',y[y.index('  alert:'):])
+        report = y[y.index('  report:'):y.index('  alert:')]
+        alert = y[y.index('  alert:'):]
+        for segment in (report, alert):
+            self.assertIn('needs: [prepare, weekly-note, deploy, verify-live-tools]', segment)
+            self.assertIn('LIVE_VERIFY_RESULT:', segment)
+        self.assertIn("needs.verify-live-tools.result != 'success'", alert)
         self.assertNotIn('issues: write',y[:y.index('  alert:')])
         self.assertIn("github.event_name == 'schedule'",y[y.index('  alert:'):])
         self.assertIn('publication_daily_alert.py',y)

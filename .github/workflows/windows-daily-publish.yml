@@ -155,7 +155,7 @@ jobs:
           PYTHONDONTWRITEBYTECODE: '1'
   report:
     if: ${{ always() && vars.WINDOWS_PIPELINE_ENABLED == 'true' && github.ref == 'refs/heads/main' }}
-    needs: [prepare, weekly-note, deploy]
+    needs: [prepare, weekly-note, deploy, verify-live-tools]
     runs-on: ubuntu-latest
     permissions: {}
     timeout-minutes: 2
@@ -165,6 +165,7 @@ jobs:
           PREPARE_RESULT: ${{ needs.prepare.result }}
           NOTE_RESULT: ${{ needs.weekly-note.result }}
           DEPLOY_RESULT: ${{ needs.deploy.result }}
+          LIVE_VERIFY_RESULT: ${{ needs.verify-live-tools.result }}
           PUBLISH_NEEDED: ${{ needs.prepare.outputs.publish }}
           GATE_STATUS: ${{ needs.prepare.outputs.gate_status }}
           GATE_REASON: ${{ needs.prepare.outputs.gate_reason }}
@@ -173,14 +174,17 @@ jobs:
           {
             echo '## Gadget daily publication evidence (not an automatic success claim)'
             echo "prepare=$PREPARE_RESULT gate=$GATE_STATUS reason=$GATE_REASON"
-            echo "deploy=$DEPLOY_RESULT weekly_note=$NOTE_RESULT requested=$PUBLISH_NEEDED"
+            echo "deploy=$DEPLOY_RESULT live_verify=$LIVE_VERIFY_RESULT weekly_note=$NOTE_RESULT requested=$PUBLISH_NEEDED"
             if [ "$GATE_STATUS" = 'already_published' ]; then
               echo 'Already published: this gate observed a real earlier Publish Pages receipt.'
             elif [ "$GATE_STATUS" = 'blocked' ]; then
               echo 'BLOCKED: no Pages publication was attempted by this run.'
               echo 'A separate day-deduplicated issue alert follows after the recovery window.'
+            elif [ "$PUBLISH_NEEDED" = 'true' ] && [ "$DEPLOY_RESULT" = 'success' ] &&
+                 [ "$LIVE_VERIFY_RESULT" = 'success' ]; then
+              echo 'Deploy job and live source/page/SEO verification both succeeded.'
             elif [ "$PUBLISH_NEEDED" = 'true' ] && [ "$DEPLOY_RESULT" = 'success' ]; then
-              echo 'Deploy job completed; verify the Publish Pages step for actual publication.'
+              echo 'Pages deployment completed but live source/page verification is NOT confirmed.'
             elif [ "$PUBLISH_NEEDED" = 'true' ]; then
               echo 'Publication not confirmed; needs review.'
             else
@@ -189,14 +193,15 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
           if [ "$GATE_STATUS" = blocked ] || [ "$PREPARE_RESULT" = failure ] ||
              { [ "$PUBLISH_NEEDED" = true ] && [ "$DEPLOY_RESULT" != success ]; } ||
+             { [ "$PUBLISH_NEEDED" = true ] && [ "$DEPLOY_RESULT" = success ] && [ "$LIVE_VERIFY_RESULT" != success ]; } ||
              [ "$NOTE_RESULT" = failure ] || [ "$NOTE_RESULT" = cancelled ]; then
             echo '::warning::Gadget publication needs review. A separate scheduled issue alert is deduplicated by JST date.'
           fi
   alert:
     # One failure email / issue per JST day, not four failures from the
     # scheduled backup runs. Missing/unknown publication is NEVER "published".
-    if: ${{ always() && github.event_name == 'schedule' && vars.WINDOWS_PIPELINE_ENABLED == 'true' && github.ref == 'refs/heads/main' && (needs.prepare.result == 'failure' || needs.prepare.result == 'cancelled' || needs.prepare.outputs.gate_status == 'blocked' || (needs.prepare.outputs.publish == 'true' && needs.deploy.result != 'success') || needs.weekly-note.result == 'failure' || needs.weekly-note.result == 'cancelled') }}
-    needs: [prepare, weekly-note, deploy]
+    if: ${{ always() && github.event_name == 'schedule' && vars.WINDOWS_PIPELINE_ENABLED == 'true' && github.ref == 'refs/heads/main' && (needs.prepare.result == 'failure' || needs.prepare.result == 'cancelled' || needs.prepare.outputs.gate_status == 'blocked' || (needs.prepare.outputs.publish == 'true' && needs.deploy.result != 'success') || (needs.prepare.outputs.publish == 'true' && needs.deploy.result == 'success' && needs.verify-live-tools.result != 'success') || needs.weekly-note.result == 'failure' || needs.weekly-note.result == 'cancelled') }}
+    needs: [prepare, weekly-note, deploy, verify-live-tools]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -217,6 +222,7 @@ jobs:
           PREPARE_RESULT: ${{ needs.prepare.result }}
           NOTE_RESULT: ${{ needs.weekly-note.result }}
           DEPLOY_RESULT: ${{ needs.deploy.result }}
+          LIVE_VERIFY_RESULT: ${{ needs.verify-live-tools.result }}
           PUBLISH_NEEDED: ${{ needs.prepare.outputs.publish }}
           GATE_STATUS: ${{ needs.prepare.outputs.gate_status }}
           GATE_REASON: ${{ needs.prepare.outputs.gate_reason }}

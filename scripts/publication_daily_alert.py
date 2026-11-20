@@ -24,7 +24,8 @@ def issue_title(now: datetime) -> str:
 
 
 def alert_reason(prepare: str, deploy: str, note: str, gate_status: str,
-                 gate_reason: str, publish_needed: str) -> str | None:
+                 gate_reason: str, publish_needed: str,
+                 verify_result: str = 'success') -> str | None:
     """Report actual problems, never successful receipt or expected skip."""
     if prepare == 'failure' or prepare == 'cancelled':
         return 'PREPARE_FAILED'
@@ -32,6 +33,8 @@ def alert_reason(prepare: str, deploy: str, note: str, gate_status: str,
         return gate_reason if SAFE_REASON.fullmatch(gate_reason) else 'GATE_BLOCKED'
     if publish_needed == 'true' and deploy not in {'success'}:
         return 'DEPLOY_NOT_VERIFIED'
+    if publish_needed == 'true' and verify_result != 'success':
+        return 'LIVE_PUBLICATION_NOT_VERIFIED'
     if note in {'failure', 'cancelled'}:
         return 'WEEKLY_NOTE_MATERIALS_FAILED'
     return None
@@ -109,13 +112,18 @@ def main() -> int:
             os.environ.get('NOTE_RESULT', ''),
             os.environ.get('GATE_STATUS', ''),
             os.environ.get('GATE_REASON', ''),
-            os.environ.get('PUBLISH_NEEDED', ''))
+            os.environ.get('PUBLISH_NEEDED', ''),
+            os.environ.get('LIVE_VERIFY_RESULT', ''))
         if reason is None:
             print('PUBLICATION_ALERT: NOTHING_TO_REPORT')
             return 0
-        if now.astimezone(JST).time() < time(9, 10):
+        if (now.astimezone(JST).time() < time(9, 10)
+                and reason != 'LIVE_PUBLICATION_NOT_VERIFIED'):
             # The primary Windows task and safe recovery window may still
             # complete. The later GitHub schedule checks can alert once.
+            # Exception: if Publish Pages succeeded but real site verification
+            # failed, subsequent runs will see "already_published" and cannot
+            # retry or re-alert. This fixed reason needs one immediate issue.
             print('PUBLICATION_ALERT: WAIT_FOR_DAILY_RECOVERY')
             return 0
         result = notify_once(now,
