@@ -155,7 +155,7 @@ def run_script(root: Path, name: str, *args):
         code = 'UNCLASSIFIED'
         if name == 'validate.py':
             diagnostic = (result.stdout + b'\n' + result.stderr).decode('utf-8', 'replace')
-            match = re.search(r'VALIDATION ERROR: ([A-Z][A-Z0-9_]{2,79})(?:\\s|$)', diagnostic)
+            match = re.search(r'VALIDATION ERROR: ([A-Z][A-Z0-9_]{2,79})(?=$|[^A-Z0-9_])', diagnostic)
             if match:
                 code = match.group(1)
         print(f'PUBLICATION_PREPARE_FAILED_STAGE: {stage} / {code}', flush=True)
