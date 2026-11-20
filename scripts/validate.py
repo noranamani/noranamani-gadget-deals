@@ -115,6 +115,41 @@ def main():
             if f'<link rel="canonical" href="{expected}">' not in text:
                 fail("CANONICAL_URL_MISMATCH")
 
+    # Factual free WebApplication metadata for the two tool URLs.
+    # Never introduce fabricated ratings or mark shopping results as reviews.
+    if site_url:
+        for name, category in (("sim-optimizer.html", "FinanceApplication"),
+                               ("product-selector.html", "ShoppingApplication")):
+            html_page = (DOCS / name).read_text(encoding="utf-8")
+            matches = re.findall(r'<script type="application/ld\+json">(.*?)</script>',
+                                 html_page, flags=re.DOTALL)
+            if len(matches) != 1:
+                fail("FREE_TOOL_SCHEMA_MISSING_OR_DUPLICATE")
+            try:
+                schema = json.loads(matches[0])
+            except (json.JSONDecodeError, TypeError):
+                fail("FREE_TOOL_SCHEMA_INVALID")
+            if not isinstance(schema, dict):
+                fail("FREE_TOOL_SCHEMA_INVALID")
+            expected_url = site_url + "/" + name
+            offer = schema.get("offers")
+            if (schema.get("@context") != "https://schema.org"
+                    or schema.get("@type") != "WebApplication"
+                    or schema.get("@id") != expected_url + "#webapp"
+                    or schema.get("url") != expected_url
+                    or schema.get("applicationCategory") != category
+                    or schema.get("isAccessibleForFree") is not True
+                    or schema.get("inLanguage") != "ja"
+                    or not isinstance(schema.get("name"), str) or not schema["name"]
+                    or not isinstance(schema.get("description"), str)
+                    or not schema["description"]
+                    or not isinstance(offer, dict)
+                    or offer.get("@type") != "Offer"
+                    or type(offer.get("price")) is not int or offer["price"] != 0
+                    or offer.get("priceCurrency") != "JPY"
+                    or any(key in schema for key in ("aggregateRating", "review"))):
+                fail("FREE_TOOL_SCHEMA_INACCURATE")
+
     # The calculator is a standalone tool, not an affiliate product listing.
     # Keep its privacy and calculation controls in every production bundle.
     tool_html = (DOCS / "sim-optimizer.html").read_text(encoding="utf-8")
