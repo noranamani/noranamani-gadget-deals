@@ -6,6 +6,7 @@ on:
     branches: [develop, main]
 permissions:
   contents: read
+  actions: read
 # This workflow is read-only CI: only the latest commit for each PR/branch
 # needs testing. Superseded revisions can stop to reduce redundant
 # GitHub Actions failure/cancellation noise; production workflows are unchanged.
@@ -43,3 +44,18 @@ jobs:
         run: python -X utf8 scripts/check_live_tools.py --observe
         env:
           PYTHONDONTWRITEBYTECODE: '1'
+
+      - name: Verify the actual pinned Pages archive can be restored without a deploy
+        if: matrix.os == 'ubuntu-latest' && github.head_ref == 'fix/recover-free-tools-from-last-published-20261120'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 44405513424 \
+            --repo "$GITHUB_REPOSITORY" \
+            --name validated-publication \
+            --dir "$RUNNER_TEMP/recovery-source"
+          python -X utf8 scripts/recover_static_tool_pages.py \
+            --artifact "$RUNNER_TEMP/recovery-source" \
+            --output "$RUNNER_TEMP/recovered/docs"
+          test -s "$RUNNER_TEMP/recovered/docs/sim-optimizer.html"
+          test -s "$RUNNER_TEMP/recovered/docs/product-selector.html"
