@@ -109,7 +109,7 @@ class LiveReadinessTests(unittest.TestCase):
         rows["feed.json"] = live.Response(200, "application/json",
             json.dumps({"updatedAt": timestamp, "deals": [], "priceDrops": []}))
         rows["robots.txt"] = live.Response(200, "text/plain",
-            "User-agent: *\\nAllow: /\\nSitemap: " + live.SITE_URL + "/sitemap.xml\\n")
+            "User-agent: *\nAllow: /\nSitemap: " + live.SITE_URL + "/sitemap.xml\n")
         return rows
 
     def test_normal_publication_requires_feed_home_and_robots(self):
@@ -156,16 +156,16 @@ class LiveReadinessTests(unittest.TestCase):
             (cfg / "site.json").write_text(json.dumps({"site_url": live.SITE_URL}))
             (data / "products.json").write_text(json.dumps({"updatedAt": stamp}))
             stdout = io.StringIO()
-            with patch.object(live, "ROOT", Path(tmp)), \\
-                 patch.object(live, "fetch_public", side_effect=rows.__getitem__), \\
+            with patch.object(live, "ROOT", Path(tmp)), \
+                 patch.object(live, "fetch_public", side_effect=rows.__getitem__), \
                  patch("sys.argv", ["live", "--require"]), redirect_stdout(stdout):
                 self.assertEqual(live.main(), 0)
             self.assertIn("LIVE_RELEASE_MODE: NORMAL_CURRENT_SOURCE", stdout.getvalue())
             rows["feed.json"] = live.Response(200, "application/json",
                 json.dumps({"updatedAt": "2026-11-19T21:10:04Z",
                             "deals": [], "priceDrops": []}))
-            with patch.object(live, "ROOT", Path(tmp)), \\
-                 patch.object(live, "fetch_public", side_effect=rows.__getitem__), \\
+            with patch.object(live, "ROOT", Path(tmp)), \
+                 patch.object(live, "fetch_public", side_effect=rows.__getitem__), \
                  patch("sys.argv", ["live", "--require"]), redirect_stdout(io.StringIO()):
                 self.assertEqual(live.main(), 1)
 
