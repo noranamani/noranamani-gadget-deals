@@ -113,6 +113,14 @@ class DailyIssueTests(unittest.TestCase):
                                        'NONE','true'),'DEPLOY_NOT_VERIFIED')
         self.assertEqual(alert_reason('success','success','failure','ready',
                                        'NONE','true'),'WEEKLY_NOTE_MATERIALS_FAILED')
+        self.assertEqual(alert_reason('success','success','skipped','ready',
+                                        'NONE','true', verify_result='failure'),
+                         'LIVE_PUBLICATION_NOT_VERIFIED')
+        self.assertEqual(alert_reason('success','success','skipped','ready',
+                                        'NONE','true', verify_result='skipped'),
+                         'LIVE_PUBLICATION_NOT_VERIFIED')
+        self.assertIsNone(alert_reason('success','success','skipped','ready',
+                                       'NONE','true', verify_result='success'))
 
     def test_first_failure_creates_one_issue_and_closed_issue_also_suppresses_next(self):
         calls=[]
@@ -173,6 +181,12 @@ class DailyIssueTests(unittest.TestCase):
         self.assertIn('--scheduled-check',a)
         self.assertNotIn('--scheduled-check',b)
         self.assertIn('issues: write',y[y.index('  alert:'):])
+        report = y[y.index('  report:'):y.index('  alert:')]
+        alert = y[y.index('  alert:'):]
+        for segment in (report, alert):
+            self.assertIn('needs: [prepare, weekly-note, deploy, verify-live-tools]', segment)
+            self.assertIn('LIVE_VERIFY_RESULT:', segment)
+        self.assertIn("needs.verify-live-tools.result != 'success'", alert)
         self.assertNotIn('issues: write',y[:y.index('  alert:')])
         self.assertIn("github.event_name == 'schedule'",y[y.index('  alert:'):])
         self.assertIn('publication_daily_alert.py',y)
