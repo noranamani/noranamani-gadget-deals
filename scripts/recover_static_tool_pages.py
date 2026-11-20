@@ -278,7 +278,7 @@ def recover_archive(source: Path, output: Path, fetch=fetch_live) -> dict:
                selector_recovery_page(old_docs, queries),
                "既存の掲載商品の過去価格と評価を絞り込む臨時版の無料ツール。",
                active_page="product-selector", canonical_file="product-selector.html",
-               page_css=SIM_STYLE + "\\n" + SELECTOR_STYLE),
+               page_css=SIM_STYLE + SELECTOR_STYLE),
         encoding="utf-8",
     )
     # Strict preservation check: no existing affiliate, price, or product page
