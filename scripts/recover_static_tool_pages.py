@@ -112,7 +112,15 @@ def safe_index_patch(page: str) -> str:
         '<a href="sim-optimizer.html">通信費・格安SIM診断</a>'
         '<a href="product-selector.html">ガジェット選定・価格比較</a>'
     )
-    return page.replace(marker, links + marker, 1)
+    # Make historical prices explicit; do not change product pages.
+    result = page.replace(marker, links + marker, 1)
+    main = '<main class="main-content">'
+    if result.count(main) != 1:
+        raise ValueError("INDEX_STRUCTURE_CHANGED")
+    note = ('<section class="prose"><p><strong>無料ツールを臨時公開しました。</strong>'
+            '商品価格・ランキングの最終取得は2026/11/19 06:10です。'
+            '最新価格や在庫は販売ページでご確認ください。</p></section>')
+    return result.replace(main, main + note, 1)
 
 
 def safe_sitemap_patch(sitemap: str) -> str:
@@ -146,7 +154,8 @@ def cards_from_archive(docs: Path, queries: list) -> tuple[str, int]:
                 continue
             numbers = {}
             for name in ("price", "score", "reviews", "drop"):
-                match = re.search(r'data-' + name + r'="([0-9]+(?:\.[0-9]+)?)"', start)
+                signed = "-?" if name == "drop" else ""
+                match = re.search(r'data-' + name + r'="(' + signed + r'[0-9]+(?:\.[0-9]+)?)"', start)
                 if not match:
                     raise ValueError("CARD_FORMAT_INVALID")
                 numbers[name] = match.group(1)
