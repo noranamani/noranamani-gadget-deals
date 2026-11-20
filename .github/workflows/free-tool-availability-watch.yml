@@ -1,0 +1,61 @@
+name: Monitor public free tools independently of product publication
+on:
+  schedule:
+    - cron: '15 1 * * *' # 10:15 JST; runs even when Windows collection is unavailable
+  push:
+    branches: [main]
+    paths: ['.github/workflows/free-tool-availability-watch.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+  issues: write
+concurrency:
+  group: gadget-public-free-tools-watch
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    if: github.repository == 'noranamani/noranamani-gadget-deals' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12'
+      - id: probe
+        name: Independently check public HTTP, homepage links, tool controls, GA4 and sitemap
+        # A failed probe must still reach the single-issue notifier below.
+        continue-on-error: true
+        run: python -X utf8 scripts/watch_free_tools.py --attempts 3 --interval 20
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+      - name: Raise at most one open issue per continuing outage
+        if: steps.probe.outcome == 'failure' && github.event_name == 'schedule'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          title='[gadget-tool-health] 無料ツールの公開状態に異常'
+          existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
+            --limit 200 --json title,number \
+            --jq '[.[] | select(.title == "[gadget-tool-health] 無料ツールの公開状態に異常") | .number] | first // empty')"
+          if [ -n "$existing" ]; then
+            echo 'An existing open tool-health incident already tracks this outage.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "          Free Web tools availability failed its independent, read-only public HTTPS checks after 3 attempts.
+          
+          - GitHub Actions result: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          - Inspect \`TOOL_HEALTH_CHECK\` fixed reason codes in this run's logs and Job Summary.
+          - The products feed and affiliate proof were NOT modified. This is NOT a fresh-price release test.
+          - Never force-publish expired product data or retry an uncertain Pages deploy.
+          
+          Resolve with a verified GitHub Pages publication, then confirm both public tools and the sitemap work."
+          fi
+      - name: Keep the monitoring run red when the public tools are unavailable
+        if: steps.probe.outcome == 'failure'
+        run: exit 1
