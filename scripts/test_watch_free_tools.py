@@ -95,6 +95,20 @@ class IndependentFreeToolsWatchTests(unittest.TestCase):
         self.assertEqual(result["sim-optimizer.html"], "HTTP_404")
         self.assertFalse(watch.publish_report(result))
 
+    def test_schedule_is_independent_of_windows_publisher_and_notifies_once(self):
+        path = Path(__file__).resolve().parents[1] / ".github" / "workflows"
+        watch_yaml = (path / "free-tool-availability-watch.yml").read_text(encoding="utf-8")
+        self.assertIn("cron: '15 1 * * *'", watch_yaml)
+        self.assertIn("gadget-public-free-tools-watch", watch_yaml)
+        self.assertIn("continue-on-error: true", watch_yaml)
+        self.assertIn('steps.probe.outcome == \'failure\'', watch_yaml)
+        self.assertIn("--limit 200 --json title,number", watch_yaml)
+        self.assertIn("github.event_name == 'schedule'", watch_yaml)
+        self.assertNotIn("WINDOWS_PIPELINE_ENABLED", watch_yaml)
+        self.assertNotIn("publish-site", watch_yaml)
+        self.assertNotIn("actions/deploy-pages", watch_yaml)
+        self.assertNotIn("gh workflow run", watch_yaml)
+
     def test_invalid_config_stops_before_network(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
