@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-11-19T21:10:04.181753Z",
-  "sourceCommit": "1a9bf95d982d114ac8f74fbf29a590ef5d6f767d",
-  "productsSha256": "6276474f5c3820da8a00f2126bd16c78d42e62f82a3ed61f2b30d0e56c445db7",
-  "historySha256": "beb70b6783cfbb3b7c374419504d361ec649af599334558d85f8625f607fad29",
+  "collectedAt": "2026-11-20T21:10:04.185737Z",
+  "sourceCommit": "c66e76c510b211df75d3e92ba35b74594777e414",
+  "productsSha256": "d5acf8715a4080b6673f1f3339a361cbd139522c5a7e0a2407b06e38974257ca",
+  "historySha256": "2888ec3733e538d3ab6a6386d216c714be039e5127acbf6198aa03c04eb4a5a7",
   "queriesSha256": "78d768738717b3a783ed0204693caac0dad0ce575dc6b90bae27d2616433e4cb",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
-  "affiliateVerificationExpiresAt": "2026-11-20T05:37:21.374999+00:00",
+  "affiliateVerificationExpiresAt": "2026-11-27T05:37:21.374999+00:00",
   "categories": [
     {
       "id": "usb-charger",
@@ -16,7 +16,7 @@
     },
     {
       "id": "wireless-charger",
-      "fetchedUnique": 49,
+      "fetchedUnique": 50,
       "displayed": 18
     },
     {
@@ -57,8 +57,11 @@
   ],
   "historyPreservation": {
     "previousKeys": 596,
-    "previousRecords": 13298,
-    "currentKeys": 596,
-    "currentRecords": 13749
-  }
+    "previousRecords": 13749,
+    "currentKeys": 598,
+    "currentRecords": 14200
+  },
+  "affiliateVerificationMode": "maintenance_continuity",
+  "affiliateOriginalProofExpiresAt": "2026-11-20T05:37:21.374999+00:00",
+  "affiliateContinuityAuthorizedAt": "2026-11-19T06:07:00.545452+00:00"
 }
