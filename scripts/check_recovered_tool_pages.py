@@ -44,7 +44,7 @@ def check() -> dict:
                 report[name] = (
                     "READY" if response.status == 200
                     and all('href="' + path + '"' in response.body for path in FILES[1:3])
-                    and OLD_SNAPSHOT_LABEL.split("年")[0] + "/11/19" not in response.body
+                    and "2026/11/19 06:10 更新" in response.body
                     else "HOME_TOOL_LINKS_MISSING")
                 # The archived index deliberately predates GA4/canonical;
                 # don't misrepresent it as a normal new-price publication.
