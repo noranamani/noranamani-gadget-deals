@@ -294,10 +294,18 @@ def recover_archive(source: Path, output: Path, fetch=fetch_live) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--artifact", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--artifact", type=Path)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--check-only", action="store_true",
+                        help="Recheck current public baseline immediately before deployment")
     args = parser.parse_args()
     try:
+        if args.check_only:
+            require_public_match()
+            print("STATIC_RECOVERY_SOURCE_STILL_PUBLIC")
+            return 0
+        if args.artifact is None or args.output is None:
+            raise ValueError("MISSING_REQUIRED_INPUT")
         result = recover_archive(args.artifact, args.output)
         print("STATIC_TOOLS_RECOVERY_READY: " + json.dumps(result, sort_keys=True))
         return 0
