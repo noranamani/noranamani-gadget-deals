@@ -90,7 +90,7 @@ def inspect_page(name: str, response: Response, measurement_id: str) -> str:
         return "HTML_MIME_INVALID"
     if not re.search(r'<meta name="description" content="[^"]{8,}"', response.body):
         return "META_DESCRIPTION_MISSING"
-    if re.search(r'<meta[^>]*name=["\\\']robots["\\\'][^>]*noindex', response.body, re.I):
+    if re.search(r'<meta[^>]*name="robots"[^>]*content="[^"]*noindex', response.body, re.I):
         return "ROBOTS_NOINDEX_PRESENT"
     expected_canonical = SITE_URL + "/" + name
     if '<link rel="canonical" href="' + expected_canonical + '">' not in response.body:
@@ -179,7 +179,7 @@ def inspect_current_snapshot(get, expected_updated_at: str) -> dict[str, str]:
             results["robots.txt"] = "ROBOTS_NOT_200"
         elif ("Sitemap: " + SITE_URL + "/sitemap.xml") not in robots.body:
             results["robots.txt"] = "ROBOTS_SITEMAP_MISSING"
-        elif re.search(r"(?im)^\\s*Disallow:\\s*/\\s*$", robots.body):
+        elif re.search(r"(?im)^\s*Disallow:\s*/\s*$", robots.body):
             results["robots.txt"] = "ROBOTS_BLOCKS_SITE"
         else:
             results["robots.txt"] = "READY"
@@ -234,7 +234,7 @@ def main() -> int:
         try:
             source = json.loads((ROOT / "data" / "products.json").read_text(encoding="utf-8"))
             expected_updated_at = str(source.get("updatedAt") or "")
-            if not re.fullmatch(r"20\\d{2}-\\d\\d-\\d\\dT.+(?:Z|[+-]\\d\\d:\\d\\d)", expected_updated_at):
+            if not re.fullmatch(r"20\d{2}-\d\d-\d\dT.+(?:Z|[+-]\d\d:\d\d)", expected_updated_at):
                 raise ValueError("SOURCE_TIMESTAMP_INVALID")
         except (OSError, ValueError, TypeError, AttributeError):
             print("LIVE_TOOL_STATUS: CONFIG_INVALID")
