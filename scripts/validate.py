@@ -140,8 +140,13 @@ def main():
     # every outbound link retains sponsored attributes and product mapping.
     try:
         audit = audit_affiliate_links(products, rendered_pages)
-    except PipelineError:
-        # Do not leak full Rakuten tracking URLs or source names in CI logs.
+    except PipelineError as exc:
+        # Give maintainers a fixed reason category, not an affiliate URL or
+        # source product identity. Invalid/missing pages remain fail-closed.
+        reason = str(exc)
+        prefix = "AFFILIATE_RENDERED_LINK_INVALID_"
+        if reason.startswith(prefix) and reason[len(prefix):] in {"HOST", "SOURCE", "MARKUP"}:
+            fail("AFFILIATE_LINK_AUDIT_FAILED_" + reason[len(prefix):])
         fail("AFFILIATE_LINK_AUDIT_FAILED")
 
     secret_patterns = [r"RAKUTEN_ACCESS_KEY\s*=", r"GITHUB_WRITE_TOKEN\s*=", r"ghp_[A-Za-z0-9]+", r"github_pat_[A-Za-z0-9_]+"]
