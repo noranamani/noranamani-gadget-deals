@@ -26,9 +26,6 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: '3.12'
-      - run: python -X utf8 -m unittest discover -s scripts -p "test_*.py" -v
-        env:
-          PYTHONDONTWRITEBYTECODE: '1'
       - name: Build real product snapshot and audit GA4 before tomorrow's publication
         # Read-only CI: checkout workspace changes are discarded; do not call
         # Rakuten, GitHub Pages, note.com, or any production endpoint.
@@ -36,5 +33,8 @@ jobs:
         run: |
           python -X utf8 scripts/build_site.py
           python -X utf8 scripts/validate.py
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+      - run: python -X utf8 -m unittest discover -s scripts -p "test_*.py" -v
         env:
           PYTHONDONTWRITEBYTECODE: '1'
