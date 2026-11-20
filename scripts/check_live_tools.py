@@ -16,10 +16,14 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
+from xml.etree import ElementTree as ET
+
+from build_site import format_updated_at
 
 ROOT = Path(__file__).resolve().parents[1]
 SITE_URL = "https://noranamani.github.io/noranamani-gadget-deals"
 FILES = ("index.html", "sim-optimizer.html", "product-selector.html", "sitemap.xml")
+SOURCE_FILES = ("feed.json", "robots.txt")
 MAX_BODY_BYTES = 2_000_000
 
 
@@ -36,13 +40,13 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 def fetch_public(name: str) -> Response:
-    if name not in FILES:
+    if name not in FILES + SOURCE_FILES:
         raise ValueError("FILE_NOT_ALLOWED")
     url = SITE_URL + ("/" if name == "index.html" else "/" + name)
     request = urllib.request.Request(
         url,
         headers={"User-Agent": "noranamani-public-tool-readiness/1.0",
-                 "Accept": "text/html,application/xml,text/xml"},
+                 "Accept": "text/html,application/xml,text/xml,application/json,text/plain"},
         method="GET",
     )
     opener = urllib.request.build_opener(
@@ -72,12 +76,22 @@ def inspect_page(name: str, response: Response, measurement_id: str) -> str:
     if name == "sitemap.xml":
         if response.mime not in ("application/xml", "text/xml"):
             return "SITEMAP_MIME_INVALID"
+        try:
+            root = ET.fromstring(response.body)
+            locs = {node.text for node in root.iter()
+                    if node.tag.rsplit("}", 1)[-1] == "loc"}
+        except ET.ParseError:
+            return "SITEMAP_XML_INVALID"
         for tool in FILES[1:3]:
-            if SITE_URL + "/" + tool not in response.body:
+            if SITE_URL + "/" + tool not in locs:
                 return "SITEMAP_TOOL_MISSING"
         return "READY"
     if response.mime not in ("text/html", "application/xhtml+xml"):
         return "HTML_MIME_INVALID"
+    if not re.search(r'<meta name="description" content="[^"]{8,}"', response.body):
+        return "META_DESCRIPTION_MISSING"
+    if re.search(r'<meta[^>]*name="robots"[^>]*content="[^"]*noindex', response.body, re.I):
+        return "ROBOTS_NOINDEX_PRESENT"
     expected_canonical = SITE_URL + "/" + name
     if '<link rel="canonical" href="' + expected_canonical + '">' not in response.body:
         return "CANONICAL_MISMATCH"
@@ -123,6 +137,57 @@ def inspect_site(get, measurement_id: str) -> dict[str, str]:
     return result
 
 
+def inspect_current_snapshot(get, expected_updated_at: str) -> dict[str, str]:
+    """Verify the actual full-price publication, never just two live tool pages.
+
+    The deployed JSON feed and the visible home update marker must agree with
+    the independently validated products.json from the publishing source SHA.
+    This is only called after the normal daily Publish Pages step succeeded.
+    The 11/19 static recovery is explicitly not a normal daily publication.
+    """
+    results = {}
+    try:
+        feed = get("feed.json")
+        if feed.status != 200:
+            results["feed.json"] = "HTTP_NOT_200"
+        elif feed.mime not in ("application/json", "text/plain"):
+            results["feed.json"] = "FEED_MIME_INVALID"
+        else:
+            payload = json.loads(feed.body)
+            if (not isinstance(payload, dict)
+                    or not isinstance(payload.get("deals"), list)
+                    or not isinstance(payload.get("priceDrops"), list)):
+                results["feed.json"] = "FEED_FORMAT_INVALID"
+            elif payload.get("updatedAt") != expected_updated_at:
+                results["feed.json"] = "FEED_NOT_CURRENT_SOURCE"
+            else:
+                results["feed.json"] = "READY"
+    except (OSError, TimeoutError, ValueError, TypeError, urllib.error.URLError, json.JSONDecodeError):
+        results["feed.json"] = "FEED_UNAVAILABLE"
+    try:
+        index = get("index.html")
+        needle = '<p class="updated">最終データ更新: ' + format_updated_at(expected_updated_at) + '</p>'
+        results["home-data-source"] = (
+            "READY" if (index.status == 200 and needle in index.body
+                        and "無料ツールを臨時公開しました" not in index.body)
+            else "HOME_NOT_CURRENT_SOURCE")
+    except (OSError, TimeoutError, ValueError, urllib.error.URLError):
+        results["home-data-source"] = "HOME_UNAVAILABLE"
+    try:
+        robots = get("robots.txt")
+        if robots.status != 200:
+            results["robots.txt"] = "ROBOTS_NOT_200"
+        elif ("Sitemap: " + SITE_URL + "/sitemap.xml") not in robots.body:
+            results["robots.txt"] = "ROBOTS_SITEMAP_MISSING"
+        elif re.search(r"(?im)^\s*Disallow:\s*/\s*$", robots.body):
+            results["robots.txt"] = "ROBOTS_BLOCKS_SITE"
+        else:
+            results["robots.txt"] = "READY"
+    except (OSError, TimeoutError, ValueError, urllib.error.URLError):
+        results["robots.txt"] = "ROBOTS_UNAVAILABLE"
+    return results
+
+
 def write_summary(report: dict[str, str], ready: bool) -> None:
     target = os.environ.get("GITHUB_STEP_SUMMARY")
     if not target:
@@ -164,9 +229,21 @@ def main() -> int:
         print("LIVE_TOOL_STATUS: CONFIG_INVALID")
         return 2
 
+    expected_updated_at = ""
+    if args.require:
+        try:
+            source = json.loads((ROOT / "data" / "products.json").read_text(encoding="utf-8"))
+            expected_updated_at = str(source.get("updatedAt") or "")
+            if not re.fullmatch(r"20\d{2}-\d\d-\d\dT.+(?:Z|[+-]\d\d:\d\d)", expected_updated_at):
+                raise ValueError("SOURCE_TIMESTAMP_INVALID")
+        except (OSError, ValueError, TypeError, AttributeError):
+            print("LIVE_TOOL_STATUS: CONFIG_INVALID")
+            return 2
     result = {}
     for attempt in range(args.attempts):
         result = inspect_site(fetch_public, measurement_id)
+        if args.require:
+            result.update(inspect_current_snapshot(fetch_public, expected_updated_at))
         if all(code == "READY" for code in result.values()):
             break
         if attempt + 1 < args.attempts:
@@ -175,6 +252,8 @@ def main() -> int:
     for name, code in result.items():
         print(f"LIVE_TOOL_CHECK: {name} / {code}")
     print("LIVE_TOOL_STATUS: " + ("READY" if ready else "PENDING"))
+    if args.require:
+        print("LIVE_RELEASE_MODE: " + ("NORMAL_CURRENT_SOURCE" if ready else "UNVERIFIED"))
     write_summary(result, ready)
     return 0 if args.observe or ready else 1
 

@@ -32,6 +32,7 @@ def page(name):
     }[name]
     return ('<!doctype html><html lang="ja"><head>'
             '<link rel="canonical" href="' + live.SITE_URL + '/' + name + '">'
+            '<meta name="description" content="ガジェットの無料ツールと価格を比較するためのサービス">'
             '<script src="https://www.googletagmanager.com/gtag/js?id=' + ID + '"></script>'
             '<script>gtag("config","' + ID + '");'
             'window.gtag("event", "affiliate_click", {});</script>'
@@ -95,7 +96,78 @@ class LiveReadinessTests(unittest.TestCase):
         self.assertEqual(live.inspect_site(rows.__getitem__, ID)["product-selector.html"], "CANONICAL_MISMATCH")
         rows = snapshots()
         rows["sitemap.xml"] = live.Response(200, "application/xml", " " * 300)
-        self.assertEqual(live.inspect_site(rows.__getitem__, ID)["sitemap.xml"], "SITEMAP_TOOL_MISSING")
+        self.assertEqual(live.inspect_site(rows.__getitem__, ID)["sitemap.xml"], "SITEMAP_XML_INVALID")
+
+    @staticmethod
+    def fresh_source(timestamp="2026-11-21T00:10:04Z"):
+        rows = snapshots()
+        home = rows["index.html"]
+        label = live.format_updated_at(timestamp)
+        rows["index.html"] = live.Response(200, "text/html",
+            home.body.replace("</body>",
+                '<p class="updated">最終データ更新: ' + label + '</p></body>'))
+        rows["feed.json"] = live.Response(200, "application/json",
+            json.dumps({"updatedAt": timestamp, "deals": [], "priceDrops": []}))
+        rows["robots.txt"] = live.Response(200, "text/plain",
+            "User-agent: *\nAllow: /\nSitemap: " + live.SITE_URL + "/sitemap.xml\n")
+        return rows
+
+    def test_normal_publication_requires_feed_home_and_robots(self):
+        stamp = "2026-11-21T00:10:04Z"
+        rows = self.fresh_source(stamp)
+        self.assertEqual(
+            set(live.inspect_current_snapshot(rows.__getitem__, stamp).values()), {"READY"})
+        self.assertEqual(
+            set(live.inspect_site(rows.__getitem__, ID).values()), {"READY"})
+
+    def test_recovered_old_feed_is_not_mistaken_for_normal_publication(self):
+        rows = self.fresh_source("2026-11-19T21:10:04Z")
+        report = live.inspect_current_snapshot(rows.__getitem__, "2026-11-21T00:10:04Z")
+        self.assertEqual(report["feed.json"], "FEED_NOT_CURRENT_SOURCE")
+        self.assertEqual(report["home-data-source"], "HOME_NOT_CURRENT_SOURCE")
+
+    def test_temporary_home_and_robots_missing_sitemap_block_handoff(self):
+        stamp = "2026-11-21T00:10:04Z"
+        rows = self.fresh_source(stamp)
+        home = rows["index.html"]
+        rows["index.html"] = live.Response(200, "text/html",
+            home.body + '<p>無料ツールを臨時公開しました</p>')
+        rows["robots.txt"] = live.Response(200, "text/plain", "Disallow: /")
+        report = live.inspect_current_snapshot(rows.__getitem__, stamp)
+        self.assertEqual(report["home-data-source"], "HOME_NOT_CURRENT_SOURCE")
+        self.assertEqual(report["robots.txt"], "ROBOTS_SITEMAP_MISSING")
+
+    def test_noindex_tag_is_not_accepted_for_normal_publication(self):
+        rows = snapshots()
+        item = rows["sim-optimizer.html"]
+        rows["sim-optimizer.html"] = live.Response(200, "text/html",
+            item.body.replace("</head>", '<meta name="robots" content="noindex"></head>'))
+        self.assertEqual(live.inspect_site(rows.__getitem__, ID)["sim-optimizer.html"],
+                         "ROBOTS_NOINDEX_PRESENT")
+
+    def test_cli_require_checks_source_feed_instead_of_just_page_urls(self):
+        stamp = "2026-11-21T00:10:04Z"
+        rows = self.fresh_source(stamp)
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg, data = Path(tmp) / "config", Path(tmp) / "data"
+            cfg.mkdir()
+            data.mkdir()
+            (cfg / "analytics.json").write_text(json.dumps({"ga4_measurement_id": ID}))
+            (cfg / "site.json").write_text(json.dumps({"site_url": live.SITE_URL}))
+            (data / "products.json").write_text(json.dumps({"updatedAt": stamp}))
+            stdout = io.StringIO()
+            with patch.object(live, "ROOT", Path(tmp)), \
+                 patch.object(live, "fetch_public", side_effect=rows.__getitem__), \
+                 patch("sys.argv", ["live", "--require"]), redirect_stdout(stdout):
+                self.assertEqual(live.main(), 0)
+            self.assertIn("LIVE_RELEASE_MODE: NORMAL_CURRENT_SOURCE", stdout.getvalue())
+            rows["feed.json"] = live.Response(200, "application/json",
+                json.dumps({"updatedAt": "2026-11-19T21:10:04Z",
+                            "deals": [], "priceDrops": []}))
+            with patch.object(live, "ROOT", Path(tmp)), \
+                 patch.object(live, "fetch_public", side_effect=rows.__getitem__), \
+                 patch("sys.argv", ["live", "--require"]), redirect_stdout(io.StringIO()):
+                self.assertEqual(live.main(), 1)
 
     def test_invalid_robots_and_bad_mime_not_accepted(self):
         rows = snapshots()
@@ -136,7 +208,11 @@ class LiveReadinessTests(unittest.TestCase):
             cfg.mkdir()
             (cfg / "analytics.json").write_text(json.dumps({"ga4_measurement_id": ID}))
             (cfg / "site.json").write_text(json.dumps({"site_url": live.SITE_URL}))
-            rows = snapshots()
+            data = Path(tmp) / "data"
+            data.mkdir()
+            (data / "products.json").write_text(
+                json.dumps({"updatedAt": "2026-11-21T00:10:04Z"}))
+            rows = self.fresh_source("2026-11-21T00:10:04Z")
             rows["product-selector.html"] = live.Response(404, "", "")
             with patch.object(live, "ROOT", Path(tmp)), \
                  patch.object(live, "fetch_public", side_effect=rows.__getitem__), \
