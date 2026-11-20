@@ -117,9 +117,13 @@ def main() -> int:
         if reason is None:
             print('PUBLICATION_ALERT: NOTHING_TO_REPORT')
             return 0
-        if now.astimezone(JST).time() < time(9, 10):
+        if (now.astimezone(JST).time() < time(9, 10)
+                and reason != 'LIVE_PUBLICATION_NOT_VERIFIED'):
             # The primary Windows task and safe recovery window may still
             # complete. The later GitHub schedule checks can alert once.
+            # Exception: if Publish Pages succeeded but real site verification
+            # failed, subsequent runs will see "already_published" and cannot
+            # retry or re-alert. This fixed reason needs one immediate issue.
             print('PUBLICATION_ALERT: WAIT_FOR_DAILY_RECOVERY')
             return 0
         result = notify_once(now,
