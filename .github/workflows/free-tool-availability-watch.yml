@@ -43,8 +43,7 @@ jobs:
           title='[gadget-tool-health] 無料ツールの公開状態に異常'
           existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
             --limit 200 --json title,number \
-            --jq '.[] | select(.title == "[gadget-tool-health] 無料ツールの公開状態に異常") | .number' \
-            | head -n 1)"
+            --jq '[.[] | select(.title == "[gadget-tool-health] 無料ツールの公開状態に異常") | .number] | first // empty')"
           if [ -n "$existing" ]; then
             echo 'An existing open tool-health incident already tracks this outage.' >> "$GITHUB_STEP_SUMMARY"
           else
