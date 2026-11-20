@@ -212,7 +212,7 @@ class LiveReadinessTests(unittest.TestCase):
             data.mkdir()
             (data / "products.json").write_text(
                 json.dumps({"updatedAt": "2026-11-21T00:10:04Z"}))
-            rows = snapshots()
+            rows = self.fresh_source("2026-11-21T00:10:04Z")
             rows["product-selector.html"] = live.Response(404, "", "")
             with patch.object(live, "ROOT", Path(tmp)), \
                  patch.object(live, "fetch_public", side_effect=rows.__getitem__), \
