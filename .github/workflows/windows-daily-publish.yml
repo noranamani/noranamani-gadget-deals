@@ -85,6 +85,8 @@ jobs:
   deploy:
     if: ${{ needs.prepare.outputs.publish == 'true' && vars.WINDOWS_PIPELINE_ENABLED == 'true' && github.ref == 'refs/heads/main' }}
     needs: prepare
+    outputs:
+      pages_published: ${{ steps.deployment.outcome == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -130,6 +132,27 @@ jobs:
         name: Publish Pages
         if: steps.gate.outputs.publish == 'true'
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+  verify-live-tools:
+    # Only an actual successful Publish Pages step authorizes this check.
+    # A skipped deploy job is NEVER interpreted as a publication receipt.
+    if: ${{ needs.deploy.outputs.pages_published == 'true' && vars.WINDOWS_PIPELINE_ENABLED == 'true' && github.ref == 'refs/heads/main' }}
+    needs: [prepare, deploy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.prepare.outputs.source_commit }}
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.12'
+      - name: Verify public tool URLs, GA4 tags, nav and sitemap after Pages propagation
+        run: python -X utf8 scripts/check_live_tools.py --require --attempts 5 --interval 20
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
   report:
     if: ${{ always() && vars.WINDOWS_PIPELINE_ENABLED == 'true' && github.ref == 'refs/heads/main' }}
     needs: [prepare, weekly-note, deploy]
