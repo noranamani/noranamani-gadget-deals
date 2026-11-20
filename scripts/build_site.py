@@ -103,6 +103,36 @@ def unique_current_items(products: dict) -> list[dict]:
     return list(by_code.values())
 
 
+def current_safe_deals(products: dict, now: datetime) -> list[dict]:
+    """Render only currently listed offers, never orphaned deal snapshots.
+
+    Collection can retain a deal that did not make the top-N category listing.
+    The website audit deliberately allows only links from those listed items.
+    Use the current category object itself to prevent a mismatched deal snapshot
+    from introducing a price or destination that differs from the listing.
+    """
+    listed = {}
+    for category in products.get("categories", []):
+        for item in category.get("items", []):
+            code = str(item.get("code") or "")
+            group = str(item.get("categoryId") or "")
+            url = str(item.get("url") or "")
+            if code and group and url and displayable(item):
+                listed[(code, group, url)] = item
+    safe, seen = [], set()
+    for deal in products.get("deals", []):
+        key = (str(deal.get("code") or ""),
+               str(deal.get("categoryId") or ""),
+               str(deal.get("url") or ""))
+        item = listed.get(key)
+        if (not item or key in seen or not deal.get("isDeal")
+                or not item.get("isDeal") or not recommendable(item, now)):
+            continue
+        safe.append(item)
+        seen.add(key)
+    return safe
+
+
 def affiliate_attrs(item: dict, placement: str) -> str:
     """Public, non-secret GA4 dimensions. Never put full tracked URLs in events."""
     return (f' data-affiliate-code="{esc(item.get("code"))}"'
@@ -301,7 +331,7 @@ def main() -> None:
     display_clock = datetime.now(timezone.utc)
     def quality_ok(item):
         return recommendable(item, display_clock)
-    safe_deals = [item for item in products.get("deals", []) if item.get("isDeal") and quality_ok(item)]
+    safe_deals = current_safe_deals(products, display_clock)
     DOCS.mkdir(parents=True, exist_ok=True)
     ASSETS.mkdir(parents=True, exist_ok=True)
 

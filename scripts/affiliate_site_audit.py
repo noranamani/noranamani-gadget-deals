@@ -75,10 +75,14 @@ def audit_affiliate_links(products: dict, pages: list[Path]) -> dict:
                               and not parts.fragment)
             except ValueError:
                 valid_host = False
-            if not (valid_host and (code, category, href) in allowed
-                    and placement and not any(c.isspace() for c in placement)
-                    and {"sponsored", "nofollow", "noopener"} <= rel
-                    and anchor.get("target") == "_blank"):
-                raise PipelineError("AFFILIATE_RENDERED_LINK_INVALID")
+            # Fixed reason codes only: never print a link, code, title or URL.
+            if not valid_host:
+                raise PipelineError("AFFILIATE_RENDERED_LINK_INVALID_HOST")
+            if (code, category, href) not in allowed:
+                raise PipelineError("AFFILIATE_RENDERED_LINK_INVALID_SOURCE")
+            if (not placement or any(c.isspace() for c in placement)
+                    or not {"sponsored", "nofollow", "noopener"} <= rel
+                    or anchor.get("target") != "_blank"):
+                raise PipelineError("AFFILIATE_RENDERED_LINK_INVALID_MARKUP")
             inspected_links += 1
     return {"pagesChecked": inspected_pages, "linksChecked": inspected_links}
