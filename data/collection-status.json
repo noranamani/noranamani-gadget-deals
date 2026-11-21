@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-11-20T21:10:04.185737Z",
-  "sourceCommit": "c66e76c510b211df75d3e92ba35b74594777e414",
-  "productsSha256": "d5acf8715a4080b6673f1f3339a361cbd139522c5a7e0a2407b06e38974257ca",
-  "historySha256": "2888ec3733e538d3ab6a6386d216c714be039e5127acbf6198aa03c04eb4a5a7",
-  "queriesSha256": "78d768738717b3a783ed0204693caac0dad0ce575dc6b90bae27d2616433e4cb",
+  "collectedAt": "2026-11-21T21:10:03.806024Z",
+  "sourceCommit": "a2496e20e36826713afd4dd87aa2b11fc7b32e06",
+  "productsSha256": "6483f23e25ac4b2f50c3c7ec9e6be3ae0fa7cdf5efb6e3a379ad7d1393b8a9ed",
+  "historySha256": "886630c9321e58a746e343020c8f13b31829b55bb3fa1f96dbf8f913a2845c74",
+  "queriesSha256": "608c773c3ba3ee113eb3740ed527e1f6aa93887aaf9c9987f85a1f506cf913a4",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
   "affiliateVerificationExpiresAt": "2026-11-27T05:37:21.374999+00:00",
@@ -16,12 +16,12 @@
     },
     {
       "id": "wireless-charger",
-      "fetchedUnique": 50,
+      "fetchedUnique": 51,
       "displayed": 18
     },
     {
       "id": "microsd",
-      "fetchedUnique": 52,
+      "fetchedUnique": 50,
       "displayed": 18
     },
     {
@@ -53,13 +53,18 @@
       "id": "power-bank",
       "fetchedUnique": 47,
       "displayed": 18
+    },
+    {
+      "id": "usb-c-cable",
+      "fetchedUnique": 42,
+      "displayed": 18
     }
   ],
   "historyPreservation": {
-    "previousKeys": 596,
-    "previousRecords": 13749,
-    "currentKeys": 598,
-    "currentRecords": 14200
+    "previousKeys": 598,
+    "previousRecords": 14200,
+    "currentKeys": 640,
+    "currentRecords": 14692
   },
   "affiliateVerificationMode": "maintenance_continuity",
   "affiliateOriginalProofExpiresAt": "2026-11-20T05:37:21.374999+00:00",
