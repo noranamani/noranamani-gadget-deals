@@ -5,6 +5,11 @@
       "id": "power-bank",
       "date_jst": "2026-11-08",
       "query_sha256": "95f9eea8eb34e4fca35723b3b499c90cd373cc1b4dba3607dd2a64e2eaac2fe9"
+    },
+    {
+      "id": "usb-c-cable",
+      "date_jst": "2026-11-22",
+      "query_sha256": "6d6ca03e2e0a7a66301a26f21119ee2c3bfe18a8254d68a51abebee71d8605a5"
     }
   ]
 }

@@ -61,5 +61,12 @@
     "keyword": "モバイルバッテリー USB-C PD 10000mAh",
     "minPrice": 1000,
     "maxPrice": 15000
+  },
+  {
+    "id": "usb-c-cable",
+    "name": "USB-Cケーブル",
+    "keyword": "USB-C ケーブル PD 100W 1m 2m",
+    "minPrice": 400,
+    "maxPrice": 5000
   }
 ]
