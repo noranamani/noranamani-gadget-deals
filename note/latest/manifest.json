@@ -1,19 +1,19 @@
 {
   "schema_version": 1,
   "site_id": "gadget",
-  "issue_key": "2026-W46",
+  "issue_key": "2026-W47",
   "status": "ready",
   "title": "ガジェット価格ウォッチ：掲載価格と価格履歴を確認",
   "article_path": "article.md",
   "cover_path": "article-cover.png",
   "source_url": "https://noranamani.github.io/noranamani-gadget-deals/",
-  "generated_at": "2026-11-14T21:40:01.016713+00:00",
-  "editorial_sha256": "7df69dfd8921be67627fa49e9832ef60e276a33b9719442da3d15c9dcf15212d",
+  "generated_at": "2026-11-21T21:40:01.014229+00:00",
+  "editorial_sha256": "c62f628b02fac4773d5d69aa643a72c6060fa8d3b183df48d48ea339908057e2",
   "files_sha256": {
-    "article.md": "a8d3243286054cb394174a43404240cc046ee05d3eea9bb6bbab30017d692d2f",
-    "article-cover.png": "405e41298c1e04a74463b4fbb810c248c0c600e2cfcbf8f6a4d502cef22ddc6d",
-    "note-post.zip": "63fa4fa1f366d6380de8413f01694de21d5a676668f67ced0ef8849474d5c664"
+    "article.md": "216535d6b326b0b9d6fb1c1253e1ca99884d2ebcaba4f22c5f89ac2730696b50",
+    "article-cover.png": "33857a1219b195e06ee1f62373bd8a0de41fedba737278ed00594f72be0bbfaf",
+    "note-post.zip": "dbbae6ab65e04828412c51ebddb49cc4ec23016d82865c34277794684f1aec00"
   },
   "source_binding": "products-sha256",
-  "source_products_sha256": "9f656819058c83456291ae0e559fab48c1bc7bc757fbf36dba7d947b5580ba22"
+  "source_products_sha256": "6483f23e25ac4b2f50c3c7ec9e6be3ae0fa7cdf5efb6e3a379ad7d1393b8a9ed"
 }
