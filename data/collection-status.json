@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-11-21T21:10:03.806024Z",
-  "sourceCommit": "a2496e20e36826713afd4dd87aa2b11fc7b32e06",
-  "productsSha256": "6483f23e25ac4b2f50c3c7ec9e6be3ae0fa7cdf5efb6e3a379ad7d1393b8a9ed",
-  "historySha256": "886630c9321e58a746e343020c8f13b31829b55bb3fa1f96dbf8f913a2845c74",
+  "collectedAt": "2026-11-22T21:10:03.187516Z",
+  "sourceCommit": "3c8740c1963246c9b87dc01e1bf1527431018363",
+  "productsSha256": "55835b4ae1c15158bc22b5194e5e7be45ab6b821c5d3069fb4333016d220ec4f",
+  "historySha256": "e97e699206ca6a26a647066ab33b21f9737264b71d79e42c93e1c2d8a3546aa4",
   "queriesSha256": "608c773c3ba3ee113eb3740ed527e1f6aa93887aaf9c9987f85a1f506cf913a4",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
@@ -21,7 +21,7 @@
     },
     {
       "id": "microsd",
-      "fetchedUnique": 50,
+      "fetchedUnique": 51,
       "displayed": 18
     },
     {
@@ -46,7 +46,7 @@
     },
     {
       "id": "mobile-router",
-      "fetchedUnique": 39,
+      "fetchedUnique": 38,
       "displayed": 18
     },
     {
@@ -61,10 +61,10 @@
     }
   ],
   "historyPreservation": {
-    "previousKeys": 598,
-    "previousRecords": 14200,
+    "previousKeys": 640,
+    "previousRecords": 14692,
     "currentKeys": 640,
-    "currentRecords": 14692
+    "currentRecords": 15184
   },
   "affiliateVerificationMode": "maintenance_continuity",
   "affiliateOriginalProofExpiresAt": "2026-11-20T05:37:21.374999+00:00",
