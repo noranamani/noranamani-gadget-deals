@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-11-22T21:10:03.187516Z",
-  "sourceCommit": "3c8740c1963246c9b87dc01e1bf1527431018363",
-  "productsSha256": "55835b4ae1c15158bc22b5194e5e7be45ab6b821c5d3069fb4333016d220ec4f",
-  "historySha256": "e97e699206ca6a26a647066ab33b21f9737264b71d79e42c93e1c2d8a3546aa4",
+  "collectedAt": "2026-11-23T21:10:03.594645Z",
+  "sourceCommit": "11c077424b259ead606c5bb4ef592cb9bb3d23cc",
+  "productsSha256": "77f22eb5c53c00a5ef4d3c5b4dc93970523a1695d46bcca718d11fa6f21aad72",
+  "historySha256": "cc33f27da3ade566ad2ba9b00536d97d27e950ec4f8ff10aa206300287681a9f",
   "queriesSha256": "608c773c3ba3ee113eb3740ed527e1f6aa93887aaf9c9987f85a1f506cf913a4",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
@@ -21,7 +21,7 @@
     },
     {
       "id": "microsd",
-      "fetchedUnique": 51,
+      "fetchedUnique": 52,
       "displayed": 18
     },
     {
@@ -62,9 +62,9 @@
   ],
   "historyPreservation": {
     "previousKeys": 640,
-    "previousRecords": 14692,
-    "currentKeys": 640,
-    "currentRecords": 15184
+    "previousRecords": 15184,
+    "currentKeys": 642,
+    "currentRecords": 15676
   },
   "affiliateVerificationMode": "maintenance_continuity",
   "affiliateOriginalProofExpiresAt": "2026-11-20T05:37:21.374999+00:00",
