@@ -1,7 +1,7 @@
 import unittest
 from datetime import datetime, timedelta, timezone
 
-from check_affiliate_expiry import evaluate
+from scripts.check_affiliate_expiry import evaluate
 
 UTC=timezone.utc
 NOW=datetime(2026,11,23,2,0,tzinfo=UTC)
