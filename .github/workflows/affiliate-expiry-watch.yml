@@ -1,0 +1,62 @@
+name: Monitor affiliate verification expiry (READ ONLY)
+on:
+  schedule:
+    - cron: '30 1 * * *' # 10:30 JST; checks recorded deadline, never renews it
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/affiliate-expiry-watch.yml'
+      - 'scripts/check_affiliate_expiry.py'
+      - 'scripts/test_check_affiliate_expiry.py'
+permissions:
+  contents: read
+concurrency:
+  group: gadget-affiliate-expiry-readonly
+  cancel-in-progress: true
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      alert: ${{ steps.deadline.outputs.alert }}
+      state: ${{ steps.deadline.outputs.state }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test deadline calculation offline
+        run: python -X utf8 -m unittest scripts/test_check_affiliate_expiry.py -v
+      - name: Check last recorded proof, never authenticate or renew
+        id: deadline
+        if: github.event_name != 'pull_request'
+        run: python -X utf8 scripts/check_affiliate_expiry.py
+  notify:
+    if: ${{ github.event_name == 'schedule' && needs.observe.outputs.alert == 'true' }}
+    needs: observe
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Open only one continuity deadline issue, no repeated email spam
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONTINUITY_STATE: ${{ needs.observe.outputs.state }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TITLE='[gadget-affiliate-proof] 有効期限の再確認が必要'
+          existing="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 --json number,title --jq '[.[] | select(.title=="[gadget-affiliate-proof] 有効期限の再確認が必要") | .number] | first // empty')"
+          if [ -n "$existing" ]; then
+            echo "An open deadline incident already exists (#$existing)" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "Read-only deadline monitor reported $CONTINUITY_STATE in data/collection-status.json.
+
+          This is NOT proof of actual affiliate eligibility or expiration. Confirm the current Windows affiliate-proof and permitted renewal procedure directly; do not fabricate evidence or turn off product publication safeguards.
+
+          GitHub run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
