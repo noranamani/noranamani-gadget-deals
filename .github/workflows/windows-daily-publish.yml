@@ -85,10 +85,10 @@ jobs:
   pages-artifact:
     # This job MUST finish before deploy-pages: its artifact service listing
     # can lag the REST artifact API immediately after upload finalization.
-    if: \${{ needs.prepare.outputs.publish == 'true' && vars.WINDOWS_PIPELINE_ENABLED == 'true' && github.ref == 'refs/heads/main' }}
+    if: ${{ needs.prepare.outputs.publish == 'true' && vars.WINDOWS_PIPELINE_ENABLED == 'true' && github.ref == 'refs/heads/main' }}
     needs: prepare
     outputs:
-      publish: \${{ steps.gate.outputs.publish }}
+      publish: ${{ steps.gate.outputs.publish }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -97,7 +97,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: \${{ needs.prepare.outputs.source_commit }}
+          ref: ${{ needs.prepare.outputs.source_commit }}
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
@@ -105,32 +105,32 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: validated-publication
-          path: \${{ runner.temp }}/publication
+          path: ${{ runner.temp }}/publication
       - name: Verify source and artifact freshness before Pages upload
         env:
-          EXPECTED_MAIN: \${{ needs.prepare.outputs.source_commit }}
+          EXPECTED_MAIN: ${{ needs.prepare.outputs.source_commit }}
         run: python -X utf8 scripts/publication_pipeline.py verify-current --purpose site --root "$GITHUB_WORKSPACE" --bundle "$RUNNER_TEMP/publication" --expected-main "$EXPECTED_MAIN"
       - id: gate
         name: Recheck freshness and prior publication before artifact upload
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: python -X utf8 scripts/publication_gate.py --root "$GITHUB_WORKSPACE" --site-only
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         if: steps.gate.outputs.publish == 'true'
         with:
-          path: \${{ runner.temp }}/publication/docs
+          path: ${{ runner.temp }}/publication/docs
       - name: Confirm uploaded Pages artifact in REST metadata (read-only, bounded)
         if: steps.gate.outputs.publish == 'true'
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: python -X utf8 scripts/check_pages_artifact_ready.py
   deploy:
     # GitHub's recommended build -> deploy job boundary lets the uploaded
     # github-pages artifact finish before deploy-pages' own artifact lookup.
-    if: \${{ needs.pages-artifact.outputs.publish == 'true' && vars.WINDOWS_PIPELINE_ENABLED == 'true' && github.ref == 'refs/heads/main' }}
+    if: ${{ needs.pages-artifact.outputs.publish == 'true' && vars.WINDOWS_PIPELINE_ENABLED == 'true' && github.ref == 'refs/heads/main' }}
     needs: [prepare, pages-artifact]
     outputs:
-      pages_published: \${{ steps.deployment.outcome == 'success' }}
+      pages_published: ${{ steps.deployment.outcome == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -140,11 +140,11 @@ jobs:
       id-token: write
     environment:
       name: github-pages
-      url: \${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: \${{ needs.prepare.outputs.source_commit }}
+          ref: ${{ needs.prepare.outputs.source_commit }}
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
@@ -152,22 +152,22 @@ jobs:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: validated-publication
-          path: \${{ runner.temp }}/publication
+          path: ${{ runner.temp }}/publication
       - name: Verify source and artifact immediately before Pages write
         env:
-          EXPECTED_MAIN: \${{ needs.prepare.outputs.source_commit }}
+          EXPECTED_MAIN: ${{ needs.prepare.outputs.source_commit }}
         run: python -X utf8 scripts/publication_pipeline.py verify-current --purpose site --root "$GITHUB_WORKSPACE" --bundle "$RUNNER_TEMP/publication" --expected-main "$EXPECTED_MAIN"
       - id: gate
         name: Final freshness and duplicate-publication guard
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: python -X utf8 scripts/publication_gate.py --root "$GITHUB_WORKSPACE" --site-only
       - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
         if: steps.gate.outputs.publish == 'true'
       - name: Confirm Pages artifact remains visible before deployment
         if: steps.gate.outputs.publish == 'true'
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: python -X utf8 scripts/check_pages_artifact_ready.py
       - id: deployment
         name: Publish Pages
