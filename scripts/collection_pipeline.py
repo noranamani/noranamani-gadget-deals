@@ -12,7 +12,7 @@ from fetch_rakuten import build_products, unwrap_items
 from pipeline_common import (PipelineError, SnapshotStore, assert_no_secrets, digest, history_preserved,
                              json_bytes, load_json, sha256, source_hashes, validate_history)
 from rakuten_client import RakutenClient, affiliate_url
-from windows_credentials import read_windows_credentials, affiliate_proof
+from windows_credentials import read_windows_credentials, affiliate_proof, FOLLOWUP_MODE
 from output_policy import OutputPolicy
 
 
@@ -99,12 +99,14 @@ def collect_generation(root: Path, state: Path, requester, verification: dict,
               'affiliateVerified': verification.get('verified') is True,
               'affiliateVerificationExpiresAt': verification.get('expiresAt'),
               'categories': categories, 'historyPreservation': preservation}
-    if verification.get('mode') == 'maintenance_continuity':
+    if verification.get('mode') in ('maintenance_continuity', FOLLOWUP_MODE):
         # Disclose the original expiry without pretending that it was renewed.
         # Cloud publication can independently reject an overlong exception.
-        status['affiliateVerificationMode'] = 'maintenance_continuity'
+        status['affiliateVerificationMode'] = verification['mode']
         status['affiliateOriginalProofExpiresAt'] = verification['originalProofExpiresAt']
         status['affiliateContinuityAuthorizedAt'] = verification['authorizedAt']
+        if verification['mode'] == FOLLOWUP_MODE:
+            status['affiliatePriorContinuityAuthorizedAt'] = verification['priorAuthorizedAt']
     if output_policy is not None:
         if not isinstance(output_policy, OutputPolicy):
             raise PipelineError('OUTPUT_POLICY_INVALID')

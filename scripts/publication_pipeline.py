@@ -11,6 +11,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from collection_pipeline import validate_queries
+from windows_credentials import (FOLLOWUP_MODE, FOLLOWUP_START, FOLLOWUP_END,
+                                 FOLLOWUP_ORIGINAL_EXPIRY, MAINTENANCE_ABSOLUTE_END)
 from git_pipeline import GitRepository, valid_sha
 from note_provenance import make_manifest as make_note_manifest, validate_existing as validate_existing_note
 from pipeline_common import (JST, PipelineError, digest, load_json, read_bytes, sha256,
@@ -44,7 +46,17 @@ def validate_collection(root: Path, now: datetime, *, max_age_hours: int = 3) ->
         raise PipelineError('AFFILIATE_CONFIRMATION_REQUIRED')
     collected = timestamp(products.get('updatedAt'))
     mode = status.get('affiliateVerificationMode')
-    if mode is not None:
+    if mode == FOLLOWUP_MODE:
+        original_expiry = timestamp(status.get('affiliateOriginalProofExpiresAt'))
+        prior_authorized = timestamp(status.get('affiliatePriorContinuityAuthorizedAt'))
+        authorized_at = timestamp(status.get('affiliateContinuityAuthorizedAt'))
+        if not (original_expiry == FOLLOWUP_ORIGINAL_EXPIRY
+                and original_expiry - timedelta(days=30) <= prior_authorized <= authorized_at
+                and FOLLOWUP_START <= authorized_at < MAINTENANCE_ABSOLUTE_END
+                and accepted_until == FOLLOWUP_END
+                and authorized_at <= collected < accepted_until):
+            raise PipelineError('AFFILIATE_MAINTENANCE_WINDOW_INVALID')
+    elif mode is not None:
         if mode != 'maintenance_continuity':
             raise PipelineError('AFFILIATE_MAINTENANCE_MODE_INVALID')
         original_expiry = timestamp(status.get('affiliateOriginalProofExpiresAt'))
