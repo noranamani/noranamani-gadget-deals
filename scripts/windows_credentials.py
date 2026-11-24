@@ -21,6 +21,13 @@ MAINTENANCE_FILE = 'affiliate-maintenance.json'
 # One-off exception for the 2026-11-09 UI portal outage; cannot be re-used for
 # subsequent expiry cycles without a new reviewed code change.
 MAINTENANCE_ABSOLUTE_END = datetime(2026, 11, 27, 5, 37, 21, 374999, tzinfo=timezone.utc)
+# Separate, non-renewable exception for the 2026-11-24 official notice.
+FOLLOWUP_MODE = 'maintenance_continuity_20261124'
+FOLLOWUP_METHOD = 'operator-approved-rakuten-ui-portal-maintenance-20261124-v2'
+FOLLOWUP_FILE = 'affiliate-maintenance-20261124.json'
+FOLLOWUP_START = datetime(2026, 11, 24, 15, 0, tzinfo=timezone.utc)
+FOLLOWUP_END = datetime(2026, 12, 15, 15, 0, tzinfo=timezone.utc)
+FOLLOWUP_ORIGINAL_EXPIRY = MAINTENANCE_ABSOLUTE_END - timedelta(days=7)
 
 
 
@@ -169,6 +176,75 @@ def _maintenance_continuity(proof_path: Path, credentials: Credentials,
             'authorizedAt': authorized.isoformat()}
 
 
+def _followup_path(proof_path: Path) -> Path:
+    return proof_path.with_name(FOLLOWUP_FILE)
+
+
+def _followup_private_paths(proof_path: Path) -> tuple[Path, Path]:
+    prior, marker = maintenance_path(proof_path), _followup_path(proof_path)
+    code_root = Path(__file__).resolve().parents[1]
+    if any(p.is_symlink() or p.resolve().is_relative_to(code_root)
+           for p in (proof_path, prior, marker)):
+        raise PipelineError('MAINTENANCE_FOLLOWUP_PATH_MUST_BE_PRIVATE')
+    return prior, marker
+
+
+def authorize_maintenance_followup(proof_path: Path, credentials: Credentials,
+                                   now: datetime) -> dict:
+    """Separate local authorization; never edit original proof or v1 marker."""
+    proof_path = Path(proof_path)
+    prior, marker = _followup_private_paths(proof_path)
+    proof, expiry = _validated_proof(proof_path, credentials, now)
+    if expiry != FOLLOWUP_ORIGINAL_EXPIRY or not FOLLOWUP_START <= now < MAINTENANCE_ABSOLUTE_END:
+        raise PipelineError('MAINTENANCE_FOLLOWUP_AUTHORIZATION_WINDOW_CLOSED')
+    if marker.exists():
+        raise PipelineError('MAINTENANCE_FOLLOWUP_ALREADY_AUTHORIZED')
+    old = _maintenance_continuity(proof_path, credentials, now, proof, expiry)
+    record = {'schemaVersion': 1, 'method': FOLLOWUP_METHOD,
+              'credentialBinding': credential_binding(credentials),
+              'proofVerifiedAt': proof['verifiedAt'], 'proofExpiresAt': proof['expiresAt'],
+              'priorMarkerSha256': sha256(prior.read_bytes()),
+              'priorAuthorizedAt': old['authorizedAt'],
+              'authorizedAt': now.isoformat(), 'expiresAt': FOLLOWUP_END.isoformat()}
+    try:
+        with marker.open('xb') as handle:
+            handle.write(json_bytes(record))
+            handle.flush()
+            os.fsync(handle.fileno())
+    except FileExistsError:
+        raise PipelineError('MAINTENANCE_FOLLOWUP_ALREADY_AUTHORIZED') from None
+    return record
+
+
+def _maintenance_followup(proof_path: Path, credentials: Credentials, now: datetime,
+                          proof: dict, expiry: datetime) -> dict:
+    prior, marker_path = _followup_private_paths(proof_path)
+    marker = load_json(marker_path)
+    if (not isinstance(marker, dict) or marker.get('schemaVersion') != 1
+            or marker.get('method') != FOLLOWUP_METHOD
+            or not hmac.compare_digest(str(marker.get('credentialBinding', '')),
+                                       credential_binding(credentials))
+            or marker.get('proofVerifiedAt') != proof.get('verifiedAt')
+            or marker.get('proofExpiresAt') != proof.get('expiresAt')
+            or expiry != FOLLOWUP_ORIGINAL_EXPIRY):
+        raise PipelineError('MAINTENANCE_FOLLOWUP_INVALID')
+    authorized = timestamp(marker.get('authorizedAt'))
+    end = timestamp(marker.get('expiresAt'))
+    if not (FOLLOWUP_START <= authorized < MAINTENANCE_ABSOLUTE_END
+            and authorized <= now < end and end == FOLLOWUP_END):
+        raise PipelineError('MAINTENANCE_FOLLOWUP_EXPIRED_OR_INVALID')
+    # Validate the v1 marker at the actual v2 authorization time.
+    # This is historical evidence validation, not a runtime clock change.
+    old = _maintenance_continuity(proof_path, credentials, authorized, proof, expiry)
+    if (marker.get('priorAuthorizedAt') != old['authorizedAt']
+            or not hmac.compare_digest(str(marker.get('priorMarkerSha256', '')),
+                                       sha256(prior.read_bytes()))):
+        raise PipelineError('MAINTENANCE_FOLLOWUP_PRIOR_MARKER_CHANGED')
+    return {'verified': True, 'mode': FOLLOWUP_MODE, 'expiresAt': end.isoformat(),
+            'originalProofExpiresAt': expiry.isoformat(),
+            'priorAuthorizedAt': old['authorizedAt'], 'authorizedAt': authorized.isoformat()}
+
+
 def affiliate_proof(path: Path | None, credentials: Credentials, now: datetime) -> dict:
     if path is None or not path.is_file():
         return {'verified': False, 'expiresAt': None}
@@ -176,6 +252,9 @@ def affiliate_proof(path: Path | None, credentials: Credentials, now: datetime) 
     if now < expiry:
         # A new genuine confirmation always takes precedence over any old marker.
         return {'verified': True, 'expiresAt': expiry.isoformat(), 'mode': 'official'}
+    followup = _followup_path(path)
+    if followup.exists() or followup.is_symlink():
+        return _maintenance_followup(path, credentials, now, proof, expiry)
     return _maintenance_continuity(path, credentials, now, proof, expiry)
 
 
@@ -187,6 +266,8 @@ def main() -> int:
                         help='Read-only expiry and credential binding check; no API calls')
     parser.add_argument('--authorize-maintenance', type=Path, metavar='PRIVATE_PROOF_FILE',
                         help='One-time interactive 7-day maintenance authorization')
+    parser.add_argument('--authorize-maintenance-20261124', type=Path, metavar='PRIVATE_PROOF_FILE',
+                        help='Separate one-time interactive authorization for the Nov 24 notice')
     args = parser.parse_args()
     try:
         credentials = read_windows_credentials()
@@ -211,12 +292,26 @@ def main() -> int:
                 args.authorize_maintenance, credentials, datetime.now(timezone.utc))
             print(json.dumps({'affiliateMaintenance': 'authorized',
                               'expiresAt': result['expiresAt']}))
+        elif args.authorize_maintenance_20261124:
+            import sys
+            if not sys.stdin.isatty():
+                raise PipelineError('INTERACTIVE_TERMINAL_REQUIRED')
+            print('Official notice 2026-11-24: https://affiliate.rakuten.co.jp/info/')
+            print('Confirm the portal remains unavailable, the account/IDs are unchanged,')
+            print('and approve continuity only through Dec 15 JST. No genuine proof is renewed.')
+            answer = input('Type MAINTENANCE-20261124 to authorize once: ')
+            if not hmac.compare_digest(answer, 'MAINTENANCE-20261124'):
+                raise PipelineError('MAINTENANCE_NOT_CONFIRMED')
+            result = authorize_maintenance_followup(
+                args.authorize_maintenance_20261124, credentials, datetime.now(timezone.utc))
+            print(json.dumps({'affiliateMaintenance': FOLLOWUP_MODE,
+                              'expiresAt': result['expiresAt']}))
         elif args.check_affiliate_proof:
             result = affiliate_proof(args.check_affiliate_proof, credentials, datetime.now(timezone.utc))
             if not result['verified']:
                 raise PipelineError('AFFILIATE_CONFIRMATION_REQUIRED')
-            print(json.dumps({'affiliateProof': ('maintenance_continuity'
-                                               if result.get('mode') == 'maintenance_continuity'
+            print(json.dumps({'affiliateProof': (result['mode']
+                                               if result.get('mode') in ('maintenance_continuity', FOLLOWUP_MODE)
                                                else 'valid'),
                               'expiresAt': result['expiresAt']}))
         else:
