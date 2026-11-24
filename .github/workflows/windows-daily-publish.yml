@@ -123,6 +123,11 @@ jobs:
         if: steps.gate.outputs.publish == 'true'
         with:
           path: ${{ runner.temp }}/publication/docs
+      - name: Wait for newly uploaded Pages artifact metadata (read-only, bounded)
+        if: steps.gate.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python -X utf8 scripts/check_pages_artifact_ready.py
       - name: Final artifact expiry and main check
         if: steps.gate.outputs.publish == 'true'
         env:
