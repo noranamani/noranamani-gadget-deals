@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-11-23T21:10:03.594645Z",
-  "sourceCommit": "11c077424b259ead606c5bb4ef592cb9bb3d23cc",
-  "productsSha256": "77f22eb5c53c00a5ef4d3c5b4dc93970523a1695d46bcca718d11fa6f21aad72",
-  "historySha256": "cc33f27da3ade566ad2ba9b00536d97d27e950ec4f8ff10aa206300287681a9f",
+  "collectedAt": "2026-11-24T21:10:03.670016Z",
+  "sourceCommit": "672d66a1f4319baddd9c513758dcaa897088e6c6",
+  "productsSha256": "77b8a955aab83731074238bc816ebda07c1166db3a165fd26e5ba96b1e2d8a27",
+  "historySha256": "7374ba1229e8d503d71da36787e50ff9ab41146a32db4b8bb73f95b34f7440e7",
   "queriesSha256": "608c773c3ba3ee113eb3740ed527e1f6aa93887aaf9c9987f85a1f506cf913a4",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
@@ -36,22 +36,22 @@
     },
     {
       "id": "carplay-android-auto",
-      "fetchedUnique": 53,
+      "fetchedUnique": 50,
       "displayed": 18
     },
     {
       "id": "dashcam",
-      "fetchedUnique": 59,
+      "fetchedUnique": 58,
       "displayed": 18
     },
     {
       "id": "mobile-router",
-      "fetchedUnique": 38,
+      "fetchedUnique": 37,
       "displayed": 18
     },
     {
       "id": "power-bank",
-      "fetchedUnique": 47,
+      "fetchedUnique": 45,
       "displayed": 18
     },
     {
@@ -61,10 +61,10 @@
     }
   ],
   "historyPreservation": {
-    "previousKeys": 640,
-    "previousRecords": 15184,
-    "currentKeys": 642,
-    "currentRecords": 15676
+    "previousKeys": 642,
+    "previousRecords": 15676,
+    "currentKeys": 646,
+    "currentRecords": 16161
   },
   "affiliateVerificationMode": "maintenance_continuity",
   "affiliateOriginalProofExpiresAt": "2026-11-20T05:37:21.374999+00:00",
