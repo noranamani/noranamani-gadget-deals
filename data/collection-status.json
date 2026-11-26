@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-11-25T21:10:04.449212Z",
-  "sourceCommit": "21c694a2cda2905c28c4c91504bb7ab904fee874",
-  "productsSha256": "b745470275e7f4939f7e52e0662a01755d58d3c2096e73d8f518aadfb40338d8",
-  "historySha256": "774c1d2a03bbc298b21fedcb10e563923c24aac6e511f8cd64185b3128132319",
+  "collectedAt": "2026-11-26T21:10:04.176128Z",
+  "sourceCommit": "2b5c2a78e79547ece12f8e412875a351e5d24a5f",
+  "productsSha256": "8beb0da7aeb79f5ee383ffa6e23384d0ba6ece90dbddc20de551f05821210a8d",
+  "historySha256": "d6aec3c05818a4097bf979f866180265e53e13e63278b44ec7fb5843c062c9e4",
   "queriesSha256": "608c773c3ba3ee113eb3740ed527e1f6aa93887aaf9c9987f85a1f506cf913a4",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
@@ -21,22 +21,22 @@
     },
     {
       "id": "microsd",
-      "fetchedUnique": 54,
+      "fetchedUnique": 51,
       "displayed": 18
     },
     {
       "id": "car-charger",
-      "fetchedUnique": 50,
+      "fetchedUnique": 51,
       "displayed": 18
     },
     {
       "id": "car-phone-holder",
-      "fetchedUnique": 60,
+      "fetchedUnique": 58,
       "displayed": 18
     },
     {
       "id": "carplay-android-auto",
-      "fetchedUnique": 51,
+      "fetchedUnique": 50,
       "displayed": 18
     },
     {
@@ -51,20 +51,20 @@
     },
     {
       "id": "power-bank",
-      "fetchedUnique": 48,
+      "fetchedUnique": 46,
       "displayed": 18
     },
     {
       "id": "usb-c-cable",
-      "fetchedUnique": 42,
+      "fetchedUnique": 43,
       "displayed": 18
     }
   ],
   "historyPreservation": {
-    "previousKeys": 646,
-    "previousRecords": 16161,
-    "currentKeys": 653,
-    "currentRecords": 16654
+    "previousKeys": 653,
+    "previousRecords": 16654,
+    "currentKeys": 662,
+    "currentRecords": 17141
   },
   "affiliateVerificationMode": "maintenance_continuity_20261124",
   "affiliateOriginalProofExpiresAt": "2026-11-20T05:37:21.374999+00:00",
