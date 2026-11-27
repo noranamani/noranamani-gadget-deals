@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "collectedAt": "2026-11-26T21:10:04.176128Z",
-  "sourceCommit": "2b5c2a78e79547ece12f8e412875a351e5d24a5f",
-  "productsSha256": "8beb0da7aeb79f5ee383ffa6e23384d0ba6ece90dbddc20de551f05821210a8d",
-  "historySha256": "d6aec3c05818a4097bf979f866180265e53e13e63278b44ec7fb5843c062c9e4",
+  "collectedAt": "2026-11-27T21:10:04.014853Z",
+  "sourceCommit": "d95762841f445c9728ea1c29f9fc5294dcf34a74",
+  "productsSha256": "5bc1647ad3a175cbffc08c8b04cdee63e867f0ff6d95f38d3635a5be1edf4362",
+  "historySha256": "02a9a89d0fd39bc06ce75f757d305b9590111b67d1400671f700f8f3ecee38ee",
   "queriesSha256": "608c773c3ba3ee113eb3740ed527e1f6aa93887aaf9c9987f85a1f506cf913a4",
   "siteConfigSha256": "7b6456fc1ca5d95042d3415faf6b7511452614ac86b4945832e59401819a0698",
   "affiliateVerified": true,
@@ -46,25 +46,25 @@
     },
     {
       "id": "mobile-router",
-      "fetchedUnique": 37,
+      "fetchedUnique": 38,
       "displayed": 18
     },
     {
       "id": "power-bank",
-      "fetchedUnique": 46,
+      "fetchedUnique": 47,
       "displayed": 18
     },
     {
       "id": "usb-c-cable",
-      "fetchedUnique": 43,
+      "fetchedUnique": 44,
       "displayed": 18
     }
   ],
   "historyPreservation": {
-    "previousKeys": 653,
-    "previousRecords": 16654,
-    "currentKeys": 662,
-    "currentRecords": 17141
+    "previousKeys": 662,
+    "previousRecords": 17141,
+    "currentKeys": 667,
+    "currentRecords": 17632
   },
   "affiliateVerificationMode": "maintenance_continuity_20261124",
   "affiliateOriginalProofExpiresAt": "2026-11-20T05:37:21.374999+00:00",
